@@ -42,7 +42,7 @@ export default function Home() {
         Main Page
         </h1>
 
-        <div className="w-full mb-4 p-3 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+        <div className="w-full mb-4 p-3 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-white">
       <textarea
         id="chat-input"
         value={message}
