@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react";
-import { CircleChevronRight} from "lucide-react";
+import { CircleChevronRight } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
-  
+
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
@@ -27,9 +28,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
 
@@ -39,13 +38,26 @@ export default function Home() {
 
       const data = await res.json();
       const aiResponse = { sender: 'ai', text: data.response || "No response received." };
-      
       setChatHistory(prev => [...prev, aiResponse]);
 
-    } catch (error) {
-      const errorMessage = { sender: 'ai', text: "Sorry, I couldn't get a response. Please try again. If the issue persists, contact the developer here:- halfskirmish.com" };
-      setChatHistory(prev => [...prev, errorMessage]);
-    } finally {
+      } catch (error) {
+    const errorMessage = {
+      sender: 'ai',
+      text: (
+        <>
+          Sorry, I couldn't get a response. Please try again. If the issue persists, contact me through my website:-{" "}
+          <Link className="font-bold"
+            href="https://halfskirmish.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            halfskirmish.com
+          </Link>
+        </>
+      )
+    };
+    setChatHistory(prev => [...prev, errorMessage]);
+  }finally {
       setLoading(false);
     }
   };
@@ -56,43 +68,43 @@ export default function Home() {
       handleChat();
     }
   };
-  
-// Half Skirmish Chat Bot Title Settings
+
   return (
-    <div className="bg-gray-900 min-h-screen flex flex-col items-center text-white font-sans p-4">
+    <div className="min-h-screen flex flex-col items-center text-gray-800 font-sans p-4">
       <div className="w-full max-w-2xl flex flex-col flex-grow h-[90vh]">
-        <h1 className="font-bold text-3xl text-center my-6 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
-          Half Skirmish Chat Bot
+        <h1 className="font-bold text-3xl text-center my-6 bg-clip-text bg-black">
+          <span className="px-6 py-2 bg-white rounded-2xl">
+            Astra A.I.
+          </span>
         </h1>
 
-        <div ref={chatContainerRef} className="flex-grow mb-4 p-4 bg-gray-800 rounded-lg border border-gray-700 overflow-y-auto space-y-4">
+        <div ref={chatContainerRef} className="flex-grow mb-4 p-4 bg-[#F8F9FA] rounded-lg overflow-y-auto space-y-4">
           {chatHistory.length === 0 ? (
-             <p className="text-gray-400 text-center">Start the conversation!</p>
+            <p className="text-[#004873] text-center">Start the conversation!</p>
           ) : (
             chatHistory.map((chat, index) => (
               <div key={index} className={`flex ${chat.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${chat.sender === 'user' ? 'bg-purple-600 rounded-br-none' : 'bg-gray-700 rounded-bl-none'}`}>
+                <div className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${chat.sender === 'user' ? 'bg-[#004873] text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
                   <p className="whitespace-pre-wrap">{chat.text}</p>
                 </div>
               </div>
             ))
           )}
 
-          {/* Chat Loading Animation */}
-           {loading && (
-             <div className="flex justify-start">
-                <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl bg-gray-700 rounded-bl-none">
-                  <div className="flex items-center space-x-2">
-                    <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-                    <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-                    <span className="h-2 w-2 bg-white rounded-full animate-pulse"></span>
-                  </div>
+          {loading && (
+            <div className="flex justify-start">
+              <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl bg-gray-700 rounded-bl-none">
+                <div className="flex items-center space-x-2">
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse"></span>
                 </div>
               </div>
+            </div>
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative flex items-center">
           <textarea
             id="chat-input"
             value={message}
@@ -100,12 +112,17 @@ export default function Home() {
             onKeyDown={handleKeyDown}
             placeholder="Send a message"
             rows={1}
-            className="w-full p-3 pr-12 text-black bg-[#D9D9D9] border gray-400 rounded-lg resize-none focus:outline-none focus:ring-2 focus:gradient-radial from-[#00A1FF] to-[#006199] transition-shadow"
+            className="w-full px-4 py-4 pr-14 text-black bg-[#F5F5F5] rounded-lg resize-none focus:outline-none"
           />
           <button
             onClick={handleChat}
             disabled={loading}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-[#004873] rounded-full hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center h-8 w-8"
+            className="absolute right-3 flex items-center justify-center h-10 w-10 
+                      bg-white text-[#004873] rounded-full shadow-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#00A1FF]
+                      hover:bg-[#004873] hover:text-white 
+                      disabled:bg-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed 
+                      transition-all"
             aria-label="Send chat message"
           >
             <CircleChevronRight className="w-5 h-5" />
