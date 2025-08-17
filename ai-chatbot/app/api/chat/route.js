@@ -1,26 +1,31 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-export async function POST(request){
+export async function POST(request) {
+  try {
+    const { message } = await request.json();
 
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
 
-try {
-    const {message} = await request.json()
-    const completion = await openai.chat.completions.create({
-        model:"chatgpt-4o-latest",
-        messages: [{role: "user", content: message}]
-    })
-    return Response.json({
-        response: completion.choices[0].message.content,
+    const result = await model.generateContent(message);
+    const response = await result.response;
+    const text = response.text();
 
-    }, {status: 200} )
+    return Response.json(
+      {
+        response: text,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error processing request:", error);
     
-} catch (error) {
-    return Response.json({
-        error: "Failed to process the frontend request"
-    }, {status: 500} );
-}
+    return Response.json(
+      {
+        error: "Failed to process the request with Gemini",
+      },
+      { status: 500 }
+    );
+  }
 }
