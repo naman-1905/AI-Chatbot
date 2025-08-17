@@ -23,7 +23,7 @@ export async function POST(request) {
     
     return Response.json(
       {
-        error: "Failed to process the request with Gemini",
+        error: "Failed to process the request.",
       },
       { status: 500 }
     );
