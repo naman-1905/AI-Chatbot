@@ -45,7 +45,7 @@ export default function Home() {
       sender: 'ai',
       text: (
         <>
-          Sorry, I couldn't get a response. Please try again. If the issue persists, contact me through my website:-{" "}
+          Sorry, I couldn't get a response. Please try again. If the issue persists, contact Naman through his website:-{" "}
           <Link className="font-bold"
             href="https://halfskirmish.com"
             target="_blank"
