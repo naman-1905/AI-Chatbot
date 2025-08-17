@@ -74,13 +74,13 @@ export default function Home() {
       <div className="w-full max-w-2xl flex flex-col flex-grow h-[90vh]">
         <h1 className="font-bold text-3xl text-center my-6 bg-clip-text bg-black">
           <span className="px-6 py-2 bg-white rounded-2xl">
-            Astra A.I.
+            Astra-Bot
           </span>
         </h1>
 
         <div ref={chatContainerRef} className="flex-grow mb-4 p-4 bg-[#F8F9FA] rounded-lg overflow-y-auto space-y-4">
           {chatHistory.length === 0 ? (
-            <p className="text-[#004873] text-center">Start the conversation!</p>
+            <p className="text-[#004873] text-center">Hi there, Welcome to Naman's AI Chatbot, I am here to answer your questions.</p>
           ) : (
             chatHistory.map((chat, index) => (
               <div key={index} className={`flex ${chat.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
