@@ -1,33 +1,66 @@
 export const runtime = "node";
 
-import { spawn } from "child_process";
-
 export async function POST(request) {
   try {
     const { message } = await request.json();
 
     if (!message || message.trim() === "") {
-      return new Response(JSON.stringify({ error: "No message provided." }), { status: 400 });
+      return new Response(
+        JSON.stringify({ error: "No message provided." }),
+        { status: 400 }
+      );
     }
 
+    // Send the request to remote Ollama
+    const response = await fetch("http://privategemma1b.kahitoz.com/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gemma3:1b",
+        prompt: message,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Remote Ollama error:", errText);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch from remote Ollama.", details: errText }),
+        { status: 502 }
+      );
+    }
+
+    // Transform Ollama JSON stream → plain text stream
     const stream = new ReadableStream({
-      start(controller) {
-        const process = spawn("ollama", ["run", "gemma3:1b"]);
+      async start(controller) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
-        // Send the user's message to Ollama via stdin
-        process.stdin.write(message + "\n");
-        process.stdin.end();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        process.stdout.on("data", (chunk) => {
-          controller.enqueue(new TextEncoder().encode(chunk.toString()));
-        });
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n").filter(Boolean);
 
-        process.stderr.on("data", (chunk) => {
-          console.error("Ollama error:", chunk.toString());
-        });
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line);
+              if (data.response) {
+                controller.enqueue(new TextEncoder().encode(data.response));
+              }
+              if (data.done) {
+                controller.close();
+                return;
+              }
+            } catch (err) {
+              console.error("Failed to parse line:", line);
+            }
+          }
+        }
 
-        process.on("close", () => controller.close());
-        process.on("error", (err) => controller.error(err));
+        controller.close();
       },
     });
 
@@ -36,6 +69,9 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error("Error processing request:", error);
-    return new Response(JSON.stringify({ error: "Failed to process request." }), { status: 500 });
+    return new Response(
+      JSON.stringify({ error: "Failed to process request." }),
+      { status: 500 }
+    );
   }
 }
