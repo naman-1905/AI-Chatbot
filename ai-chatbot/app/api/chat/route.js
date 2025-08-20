@@ -12,7 +12,7 @@ export async function POST(request) {
     }
 
     // Send the request to remote Ollama
-    const response = await fetch("http://privategemma1b.kahitoz.com/api/generate", {
+    const response = await fetch(GEMMA1B_API_URL,{
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
