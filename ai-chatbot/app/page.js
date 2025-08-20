@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import remarkBreaks from "remark-breaks";
 import { CircleChevronRight } from "lucide-react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function Home() {
   const [message, setMessage] = useState("");
@@ -95,7 +97,9 @@ export default function Home() {
         >
           {chatHistory.length === 0 ? (
             <p className="text-[#004873] text-center">
-              Hi there, Welcome to Naman's AI Chatbot, I am here to answer your
+              Hi there, I am Astra Bot, created by Naman Chaturvedi.
+              <br/>
+              I am here to answer your
               questions.
             </p>
           ) : (
@@ -114,21 +118,30 @@ export default function Home() {
                   }`}
                 >
                   {typeof chat.text === "string" ? (
-                  <ReactMarkdown
-                    components={{
-                      p: ({ node, ...props }) => (
-                        <p className="whitespace-pre-wrap" {...props} />
-                      ),
-                      li: ({ node, ...props }) => (
-                        <li className="list-disc ml-6" {...props} />
-                      ),
-                      strong: ({ node, ...props }) => (
-                        <strong className="font-bold" {...props} />
-                      ),
-                    }}
-                  >
-                    {chat.text}
-                  </ReactMarkdown>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkBreaks]}
+                      components={{
+                        p: ({ node, ...props }) => (
+                          <p className="whitespace-pre-wrap" {...props} />
+                        ),
+                        li: ({ node, ...props }) => (
+                          <li className="list-disc ml-6" {...props} />
+                        ),
+                        strong: ({ node, ...props }) => (
+                          <strong className="font-bold" {...props} />
+                        ),
+                        a: ({ node, ...props }) => (
+                          <a
+                            {...props}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-900 italic"
+                          />
+                        ),
+                      }}
+                    >
+                      {chat.text}
+                    </ReactMarkdown>
                   ) : (
                     chat.text
                   )}
