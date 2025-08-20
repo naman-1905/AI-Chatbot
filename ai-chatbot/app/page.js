@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { CircleChevronRight } from "lucide-react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 
 export default function Home() {
   const [message, setMessage] = useState("");
@@ -55,7 +56,8 @@ export default function Home() {
         sender: "ai",
         text: (
           <>
-            Sorry, I couldn't get a response. Please try again. If the issue persists, contact Naman through his website:{" "}
+            Sorry, I couldn't get a response. Please try again. If the issue
+            persists, contact Naman through his website:{" "}
             <Link
               className="font-bold"
               href="https://halfskirmish.com"
@@ -111,7 +113,25 @@ export default function Home() {
                       : "bg-white text-gray-800 rounded-bl-none"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{chat.text}</p>
+                  {typeof chat.text === "string" ? (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ node, ...props }) => (
+                        <p className="whitespace-pre-wrap" {...props} />
+                      ),
+                      li: ({ node, ...props }) => (
+                        <li className="list-disc ml-6" {...props} />
+                      ),
+                      strong: ({ node, ...props }) => (
+                        <strong className="font-bold" {...props} />
+                      ),
+                    }}
+                  >
+                    {chat.text}
+                  </ReactMarkdown>
+                  ) : (
+                    chat.text
+                  )}
                 </div>
               </div>
             ))
