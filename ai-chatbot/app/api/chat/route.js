@@ -1,5 +1,11 @@
 export const runtime = "node";
 
+const GEMMA1B_API_URL = process.env.GEMMA1B_API_URL;
+
+if (!GEMMA1B_API_URL) {
+  throw new Error("Missing GEMMA1B_API_URL in environment variables");
+}
+
 export async function POST(request) {
   try {
     const { message } = await request.json();
