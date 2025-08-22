@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Streamdown from "streamdown";
 import { CircleChevronRight } from "lucide-react";
 import Link from "next/link";
+import Streamdown from "streamdown";
 
 export default function Home() {
   const [message, setMessage] = useState("");
@@ -38,7 +38,8 @@ export default function Home() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let aiText = "";
-      setChatHistory((prev) => [...prev, { sender: "ai", text: "" }]);
+      const aiMessage = { sender: "ai", text: "" };
+      setChatHistory((prev) => [...prev, aiMessage]);
 
       while (true) {
         const { value, done } = await reader.read();
@@ -47,7 +48,7 @@ export default function Home() {
         aiText += chunk;
         setChatHistory((prev) => {
           const newHistory = [...prev];
-          newHistory[newHistory.length - 1].text = aiText;
+          newHistory[newHistory.length - 1] = { sender: "ai", text: aiText };
           return newHistory;
         });
       }
@@ -69,7 +70,7 @@ export default function Home() {
           </>
         ),
       };
-      setChatHistory((prev) => [...prev.slice(0, -1), errorMessage]);
+      setChatHistory((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
@@ -83,8 +84,8 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen flex flex-col items-center text-gray-800 font-sans p-4 bg-gray-50">
-      <div className="w-full max-w-2xl flex flex-col flex-grow">
+    <div className="min-h-screen flex flex-col items-center text-gray-800 font-sans p-4">
+      <div className="w-full max-w-2xl flex flex-col flex-grow h-[90vh]">
         <h1 className="font-bold text-3xl text-center my-6 bg-clip-text bg-black">
           <span className="px-6 py-2 bg-white rounded-2xl">Astra-Bot</span>
         </h1>
@@ -94,7 +95,7 @@ export default function Home() {
           className="flex-grow mb-4 p-4 bg-[#F8F9FA] rounded-lg overflow-y-auto space-y-4"
         >
           {chatHistory.length === 0 ? (
-            <p className="text-[#004873] text-center">
+            <p className="font-bold text-[#004873] text-center">
               Hi there, I am Astra Bot, created by Naman Chaturvedi.
               <br />
               I am here to answer your questions.
@@ -111,33 +112,21 @@ export default function Home() {
                   className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${
                     chat.sender === "user"
                       ? "bg-[#004873] text-white rounded-br-none"
-                      : "bg-white text-gray-800 rounded-bl-none shadow-sm"
+                      : "bg-white text-gray-800 rounded-bl-none"
                   }`}
                 >
                   {typeof chat.text === "string" ? (
-                    <Streamdown
-                      components={{
-                        p: ({ node, ...props }) => (
-                          <p className="whitespace-pre-wrap" {...props} />
-                        ),
-                        li: ({ node, ...props }) => (
-                          <li className="list-disc ml-6" {...props} />
-                        ),
-                        strong: ({ node, ...props }) => (
-                          <strong className="font-bold" {...props} />
-                        ),
-                        a: ({ node, ...props }) => (
-                          <a
-                            {...props}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-900 italic hover:underline"
-                          />
-                        ),
-                      }}
+                    // Applied a wrapper div to style the markdown output
+                    <div
+                      className="
+                        [&_p]:whitespace-pre-wrap 
+                        [&_li]:list-disc [&_li]:ml-6 
+                        [&_strong]:font-bold 
+                        [&_a]:text-blue-900 [&_a]:italic
+                      "
                     >
-                      {chat.text}
-                    </Streamdown>
+                      <Streamdown>{chat.text}</Streamdown>
+                    </div>
                   ) : (
                     chat.text
                   )}
@@ -148,18 +137,18 @@ export default function Home() {
 
           {loading && (
             <div className="flex justify-start">
-              <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl bg-white rounded-bl-none shadow-sm">
+              <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl bg-gray-700 rounded-bl-none">
                 <div className="flex items-center space-x-2">
-                  <span className="h-2 w-2 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-                  <span className="h-2 w-2 bg-gray-500 rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-                  <span className="h-2 w-2 bg-gray-500 rounded-full animate-pulse"></span>
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+                  <span className="h-2 w-2 bg-white rounded-full animate-pulse"></span>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="relative flex items-center">
+        <div className="relative flex z-10 items-center">
           <textarea
             id="chat-input"
             value={message}
@@ -167,12 +156,12 @@ export default function Home() {
             onKeyDown={handleKeyDown}
             placeholder="Send a message"
             rows={1}
-            className="w-full px-4 py-4 pr-14 text-black bg-[#F5F5F5] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#00A1FF]"
+            className="w-full px-4 py-4 pr-14 text-black bg-[#F5F5F5] rounded-lg resize-none focus:outline-none"
           />
           <button
             onClick={handleChat}
-            disabled={!message.trim() || loading}
-            className="absolute right-3 flex items-center justify-center h-10 w-10 bg-white text-[#004873] rounded-full shadow-md focus:outline-none focus:ring-2 focus:ring-[#00A1FF] hover:bg-[#004873] hover:text-white disabled:bg-gray-400 disabled:text-gray-200 disabled:cursor-not-allowed transition-all"
+            disabled={loading}
+            className="absolute right-3 flex items-center justify-center h-10 w-10 bg-white text-[#004873] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00A1FF] hover:bg-[#004873] hover:text-white disabled:bg-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-all"
             aria-label="Send chat message"
           >
             <CircleChevronRight className="w-5 h-5" />
