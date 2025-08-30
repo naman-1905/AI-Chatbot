@@ -191,7 +191,7 @@ export default function Home() {
               onKeyDown={handleKeyDown}
               placeholder="Send a message"
               rows={1}
-              className="w-full px-4 py-4 pr-14 text-black bg-[#F5F5F5] border-2 border-blue-300 rounded-lg resize-none focus:outline-none"
+              className="w-full px-4 py-4 pr-14 text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none"
             />
             <button
               onClick={handleChat}
