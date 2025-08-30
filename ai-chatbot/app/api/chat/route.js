@@ -1,83 +1,41 @@
-export const runtime = "node";
+import { v4 as uuidv4 } from "uuid";
 
-const GEMMA1B_API_URL = process.env.GEMMA1B_API_URL;
-
-if (!GEMMA1B_API_URL) {
-  throw new Error("Missing GEMMA1B_API_URL in environment variables");
-}
-
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const { message } = await request.json();
+    const { message, chat_channel } = await req.json();
 
-    if (!message || message.trim() === "") {
-      return new Response(
-        JSON.stringify({ error: "No message provided." }),
-        { status: 400 }
-      );
-    }
+    // Generate or reuse user_id
+    let user_id = "user_demo"; // Replace with cookies/localStorage persistence if needed
+    const channel = chat_channel || `chat_${uuidv4()}`;
 
-    // Send the request to remote Ollama
-    const response = await fetch(GEMMA1B_API_URL,{
+    const payload = {
+      message,
+      admin: process.env.NEXT_PUBLIC_ADMIN,
+      user_id,
+      chat_channel: channel,
+      use_context: true,
+      context_limit: 3,
+    };
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gemma3:1b",
-        prompt: message,
-        stream: true,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Remote Ollama error:", errText);
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch from remote Ollama.", details: errText }),
-        { status: 502 }
-      );
+    if (!res.ok) {
+      return new Response("Error from RAG API", { status: res.status });
     }
 
-    // Transform Ollama JSON stream → plain text stream
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter(Boolean);
-
-          for (const line of lines) {
-            try {
-              const data = JSON.parse(line);
-              if (data.response) {
-                controller.enqueue(new TextEncoder().encode(data.response));
-              }
-              if (data.done) {
-                controller.close();
-                return;
-              }
-            } catch (err) {
-              console.error("Failed to parse line:", line);
-            }
-          }
-        }
-
-        controller.close();
+    // Pass channel back in header
+    return new Response(res.body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "x-chat-channel": channel,
       },
     });
-
-    return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
-  } catch (error) {
-    console.error("Error processing request:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to process request." }),
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("Chat API Error:", err);
+    return new Response("Internal Server Error", { status: 500 });
   }
 }
