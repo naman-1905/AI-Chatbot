@@ -10,7 +10,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
-  const [chatChannel, setChatChannel] = useState(null);
+  const [chatChannel, setChatChannel] = useState("chat_session_001"); // default session id or generate dynamically
 
   const chatContainerRef = useRef(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -32,46 +32,76 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, chat_channel: chatChannel }),
+        body: JSON.stringify({
+          message,
+          admin: "naman", // ✅ safe to expose
+          user_id: "user_12345", // replace with persistent user id
+          chat_channel: chatChannel,
+          use_context: true,
+          context_limit: 3,
+        }),
       });
 
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
-      // First response may contain channel
-      if (!chatChannel) {
-        const channelHeader = res.headers.get("x-chat-channel");
-        if (channelHeader) setChatChannel(channelHeader);
-      }
-
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let aiText = "";
-      const aiMessage = { sender: "ai", text: "" };
-      setChatHistory((prev) => [...prev, aiMessage]);
+      let aiMessageAdded = false; // track if we've inserted the AI bubble yet
+
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value);
-        aiText += chunk;
-        setChatHistory((prev) => {
-          const newHistory = [...prev];
-          newHistory[newHistory.length - 1] = { sender: "ai", text: aiText };
-          return newHistory;
-        });
+
+        const chunk = decoder.decode(value, { stream: true });
+
+        // 🔥 Filter SSE lines
+        const lines = chunk.split("\n").filter((line) => line.startsWith("data:"));
+        for (const line of lines) {
+          try {
+            const jsonStr = line.replace(/^data:\s*/, "");
+            if (!jsonStr) continue;
+
+            const data = JSON.parse(jsonStr);
+
+            if (data.type === "metadata") {
+              // Metadata is safe, but don’t show in chat
+              console.log("Bot Metadata:", data.bot_name, data.admin_name);
+              continue;
+            }
+
+        if (data.type === "response") {
+          if (!aiMessageAdded) {
+            setChatHistory((prev) => [...prev, { sender: "ai", text: "" }]);
+            aiMessageAdded = true;
+          }
+
+          aiText += data.chunk;
+          setChatHistory((prev) => {
+            const newHistory = [...prev];
+            newHistory[newHistory.length - 1] = { sender: "ai", text: aiText };
+            return newHistory;
+          });
+            }
+          } catch (err) {
+            console.error("Stream parse error:", err, line);
+          }
+        }
       }
     } catch (error) {
+      console.error(error);
       setChatHistory((prev) => [
         ...prev,
         {
           sender: "ai",
           text: (
             <>
-              Sorry, I couldn&apos;t get a response. Please try again. If the issue
-              persists, contact Naman through his website:{" "}
+              Sorry, I couldn&apos;t get a response. Please try again. If the
+              issue persists, contact Naman through his website:{" "}
               <Link
                 className="font-bold"
                 href="https://halfskirmish.com"
@@ -109,7 +139,7 @@ export default function Home() {
         {/* Toggle sidebar */}
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-5 left-4 z-20 p-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+          className="absolute top-5 left-4 cursor-pointer z-20 p-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
           aria-label="Toggle sidebar"
         >
           {isSidebarOpen ? (
@@ -121,7 +151,7 @@ export default function Home() {
 
         <div className="w-full max-w-2xl flex flex-col flex-grow h-[calc(100vh-2rem)]">
           <h1 className="font-bold text-3xl text-center my-6 bg-clip-text bg-black">
-            <span className="px-6 py-2 bg-white rounded-2xl">Astra-Bot</span>
+            <span className="px-6 py-2 bg-white rounded-2xl">Astral Bot</span>
           </h1>
 
           {/* Chat Messages */}
