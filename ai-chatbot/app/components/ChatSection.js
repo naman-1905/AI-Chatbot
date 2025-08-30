@@ -1,0 +1,209 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { CircleChevronRight, Menu, PanelLeft } from "lucide-react";
+import Link from "next/link";
+import Streamdown from "streamdown";
+import Sidebar from "./ChatHistory";
+
+export default function Home() {
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatChannel, setChatChannel] = useState(null);
+
+  const chatContainerRef = useRef(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Auto-scroll when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
+
+  const handleChat = async () => {
+    if (!message.trim() || loading) return;
+
+    const newUserMessage = { sender: "user", text: message };
+    setChatHistory((prev) => [...prev, newUserMessage]);
+    setMessage("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, chat_channel: chatChannel }),
+      });
+
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+      // First response may contain channel
+      if (!chatChannel) {
+        const channelHeader = res.headers.get("x-chat-channel");
+        if (channelHeader) setChatChannel(channelHeader);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let aiText = "";
+      const aiMessage = { sender: "ai", text: "" };
+      setChatHistory((prev) => [...prev, aiMessage]);
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        aiText += chunk;
+        setChatHistory((prev) => {
+          const newHistory = [...prev];
+          newHistory[newHistory.length - 1] = { sender: "ai", text: aiText };
+          return newHistory;
+        });
+      }
+    } catch (error) {
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: (
+            <>
+              Sorry, I couldn&apos;t get a response. Please try again. If the issue
+              persists, contact Naman through his website:{" "}
+              <Link
+                className="font-bold"
+                href="https://halfskirmish.com"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                halfskirmish.com
+              </Link>
+            </>
+          ),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleChat();
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-100">
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        setChatChannel={setChatChannel}
+        setChatHistory={setChatHistory}
+      />
+
+      <main className="relative flex-1 flex flex-col items-center text-gray-800 font-sans p-4">
+        {/* Toggle sidebar */}
+        <button
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="absolute top-5 left-4 z-20 p-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+          aria-label="Toggle sidebar"
+        >
+          {isSidebarOpen ? (
+            <PanelLeft className="w-5 h-5" />
+          ) : (
+            <Menu className="w-5 h-5" />
+          )}
+        </button>
+
+        <div className="w-full max-w-2xl flex flex-col flex-grow h-[calc(100vh-2rem)]">
+          <h1 className="font-bold text-3xl text-center my-6 bg-clip-text bg-black">
+            <span className="px-6 py-2 bg-white rounded-2xl">Astra-Bot</span>
+          </h1>
+
+          {/* Chat Messages */}
+          <div
+            ref={chatContainerRef}
+            className="flex-grow mb-4 p-4 bg-[#F8F9FA] border border-blue-200 rounded-lg overflow-y-auto space-y-4"
+          >
+            {chatHistory.length === 0 ? (
+              <p className="font-bold text-[#004873] text-center">
+                Hi there, I am Astra Bot, created by Naman Chaturvedi.
+                <br />
+                I am here to answer your questions.
+              </p>
+            ) : (
+              chatHistory.map((chat, index) => (
+                <div
+                  key={index}
+                  className={`flex ${
+                    chat.sender === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${
+                      chat.sender === "user"
+                        ? "bg-[#004873] text-white rounded-br-none"
+                        : "bg-white text-gray-800 rounded-bl-none"
+                    }`}
+                  >
+                    {typeof chat.text === "string" ? (
+                      <div
+                        className="
+                          [&_p]:whitespace-pre-wrap 
+                          [&_li]:list-disc [&_li]:ml-6 
+                          [&_strong]:font-bold 
+                          [&_a]:text-blue-900 [&_a]:italic
+                        "
+                      >
+                        <Streamdown>{chat.text}</Streamdown>
+                      </div>
+                    ) : (
+                      chat.text
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+
+            {loading && (
+              <div className="flex justify-start">
+                <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl bg-gray-700 rounded-bl-none">
+                  <div className="flex items-center space-x-2">
+                    <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+                    <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+                    <span className="h-2 w-2 bg-white rounded-full animate-pulse"></span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input Box */}
+          <div className="relative flex z-10 items-center">
+            <textarea
+              id="chat-input"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Send a message"
+              rows={1}
+              className="w-full px-4 py-4 pr-14 text-black bg-[#F5F5F5] border-2 border-blue-300 rounded-lg resize-none focus:outline-none"
+            />
+            <button
+              onClick={handleChat}
+              disabled={loading}
+              className="absolute right-3 flex items-center justify-center h-10 w-10 bg-white text-[#004873] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00A1FF] hover:bg-[#004873] hover:text-white disabled:bg-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-all"
+              aria-label="Send chat message"
+            >
+              <CircleChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
