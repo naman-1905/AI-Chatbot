@@ -48,7 +48,7 @@ export default function Sidebar({ isOpen, onClose, setChatChannel, setChatHistor
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={startNewChat}
-          className="flex-1 flex items-center justify-center gap-2 p-2 bg-[#F8F9FA] text-[#004873] font-semibold rounded-md hover:bg-gray-200 transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 cursor-pointer p-2 bg-[#F8F9FA] text-[#004873] font-semibold rounded-md hover:bg-gray-200 transition-colors"
         >
           <Plus className="w-5 h-5" />
           New Chat
