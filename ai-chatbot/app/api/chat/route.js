@@ -17,7 +17,7 @@ export async function POST(req) {
       context_limit: 3,
     };
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/stream`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
