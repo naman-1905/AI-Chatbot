@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME      = "astrobot"
         TAG             = "latest"
-        REGISTRY        = "docker.kahitoz.com"
+        REGISTRY        = "10.243.4.236:5000"
         DEPLOYMENT_NAME = "astrobot"
         DOCKER_HOST     = "tcp://10.243.52.185:2375"
         APP_NETWORK     = "app"
@@ -33,7 +33,7 @@ pipeline {
             steps {
                 script {
                     echo 'Pushing Docker Image to Registry...'
-                    sh "docker push http://10.243.4.236:5000/${IMAGE_NAME}:${TAG}"
+                    sh "docker push ${REGISTRY}/${IMAGE_NAME}:${TAG}"
                 }
             }
         }
