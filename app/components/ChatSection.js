@@ -76,7 +76,8 @@ export default function Home() {
             if (data.type === "response") {
               // 🚫 Skip unwanted connection error filler text
               const cleanedChunk = data.chunk.replace(
-                /I'm having trouble connecting to my language model\. Please try again in a moment\./g,
+                /I apologize, but I cannot provide a response to that query due to content guidelines.\ Please try rephrasing your question\./g,
+                
                 ""
               );
 
