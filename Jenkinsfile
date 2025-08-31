@@ -33,7 +33,7 @@ pipeline {
             steps {
                 script {
                     echo 'Pushing Docker Image to Registry...'
-                    sh "docker push ${REGISTRY}/${IMAGE_NAME}:${TAG}"
+                    sh "docker push http://10.243.4.236:5000/${IMAGE_NAME}:${TAG}"
                 }
             }
         }
