@@ -52,7 +52,6 @@ export default function Home() {
       let aiText = "";
       let aiMessageAdded = false; // track if we've inserted the AI bubble yet
 
-
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -74,18 +73,26 @@ export default function Home() {
               continue;
             }
 
-        if (data.type === "response") {
-          if (!aiMessageAdded) {
-            setChatHistory((prev) => [...prev, { sender: "ai", text: "" }]);
-            aiMessageAdded = true;
-          }
+            if (data.type === "response") {
+              // 🚫 Skip unwanted connection error filler text
+              const cleanedChunk = data.chunk.replace(
+                /I'm having trouble connecting to my language model\. Please try again in a moment\./g,
+                ""
+              );
 
-          aiText += data.chunk;
-          setChatHistory((prev) => {
-            const newHistory = [...prev];
-            newHistory[newHistory.length - 1] = { sender: "ai", text: aiText };
-            return newHistory;
-          });
+              if (!cleanedChunk) continue; // skip empty chunks
+
+              if (!aiMessageAdded) {
+                setChatHistory((prev) => [...prev, { sender: "ai", text: "" }]);
+                aiMessageAdded = true;
+              }
+
+              aiText += cleanedChunk;
+              setChatHistory((prev) => {
+                const newHistory = [...prev];
+                newHistory[newHistory.length - 1] = { sender: "ai", text: aiText };
+                return newHistory;
+              });
             }
           } catch (err) {
             console.error("Stream parse error:", err, line);
@@ -151,7 +158,7 @@ export default function Home() {
 
         <div className="w-full max-w-2xl flex flex-col flex-grow h-[calc(100vh-2rem)]">
           <h1 className="font-bold text-3xl text-center my-6 bg-clip-text bg-black">
-            <span className="px-6 py-2 bg-white rounded-2xl">Astral Bot</span>
+            <span className="px-6 py-2 bg-white rounded-2xl">Astro Bot</span>
           </h1>
 
           {/* Chat Messages */}
