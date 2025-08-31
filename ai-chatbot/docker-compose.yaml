@@ -1,0 +1,16 @@
+services:
+  namans_portfolio:
+    container_name: namans_portfolio
+    image: namans_portfolio_image:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - app_network
+    environment:
+      - NODE_ENV=production
+
+networks:
+  app_network:
+    external: true
+    name: config_app_network
+ 
