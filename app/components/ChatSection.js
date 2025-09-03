@@ -13,7 +13,7 @@ export default function Home() {
   const [chatChannel, setChatChannel] = useState("chat_session_001"); // default session id or generate dynamically
 
   const chatContainerRef = useRef(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
