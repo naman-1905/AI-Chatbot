@@ -197,7 +197,7 @@ export default function Home() {
           </button>
 
           <h1 className="font-bold text-xl sm:text-2xl md:text-3xl text-center bg-clip-text bg-black flex-1">
-            <span className="px-4 py-2 bg-white rounded-2xl">Astro Bot</span>
+            <span className="px-4 py-2 text-black rounded-2xl">Astro Bot</span>
           </h1>
           
           {/* Spacer to center the title */}
