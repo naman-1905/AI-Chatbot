@@ -68,7 +68,7 @@ export default function Home() {
             const data = JSON.parse(jsonStr);
 
             if (data.type === "metadata") {
-              // Metadata is safe, but don’t show in chat
+              // Metadata is safe, but don't show in chat
               console.log("Bot Metadata:", data.bot_name, data.admin_name);
               continue;
             }
@@ -135,7 +135,15 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+      {/* Sidebar with overlay on mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -143,102 +151,114 @@ export default function Home() {
         setChatHistory={setChatHistory}
       />
 
-      <main className="relative flex-1 flex flex-col items-center text-gray-800 font-sans p-4">
-        {/* Toggle sidebar */}
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-5 left-4 cursor-pointer z-20 p-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-          aria-label="Toggle sidebar"
-        >
-          {isSidebarOpen ? (
-            <PanelLeft className="w-5 h-5" />
-          ) : (
-            <Menu className="w-5 h-5" />
-          )}
-        </button>
-
-        <div className="w-full max-w-2xl flex flex-col flex-grow h-[calc(100vh-2rem)]">
-          <h1 className="font-bold text-3xl text-center my-6 bg-clip-text bg-black">
-            <span className="px-6 py-2 bg-white rounded-2xl">Astro Bot</span>
-          </h1>
-
-          {/* Chat Messages */}
-          <div
-            ref={chatContainerRef}
-            className="flex-grow mb-4 p-4 bg-[#F8F9FA] border border-blue-200 rounded-lg overflow-y-auto space-y-4"
+      <main className="relative flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Header with toggle button */}
+        <div className="flex-shrink-0 flex items-center justify-between p-4 bg-gray-100">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="cursor-pointer z-10 p-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+            aria-label="Toggle sidebar"
           >
-            {chatHistory.length === 0 ? (
-              <p className="font-bold text-[#004873] text-center">
-                Hi there, I am Astra Bot, created by Naman Chaturvedi.
-                <br />
-                I am here to answer your questions.
-              </p>
+            {isSidebarOpen ? (
+              <PanelLeft className="w-5 h-5" />
             ) : (
-              chatHistory.map((chat, index) => (
-                <div
-                  key={index}
-                  className={`flex ${
-                    chat.sender === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
+              <Menu className="w-5 h-5" />
+            )}
+          </button>
+
+          <h1 className="font-bold text-xl sm:text-2xl md:text-3xl text-center bg-clip-text bg-black flex-1">
+            <span className="px-4 py-2 bg-black rounded-2xl">Astro Bot</span>
+          </h1>
+          
+          {/* Spacer to center the title */}
+          <div className="w-10 h-10"></div>
+        </div>
+
+        {/* Chat container */}
+        <div className="flex-1 flex flex-col min-h-0 px-4 pb-4">
+          <div className="w-full max-w-4xl mx-auto flex flex-col flex-1 min-h-0">
+            {/* Chat Messages */}
+            <div
+              ref={chatContainerRef}
+              className="flex-1 mb-4 p-3 sm:p-4 bg-[#F8F9FA] border border-blue-200 rounded-lg overflow-y-auto space-y-3 sm:space-y-4 min-h-0"
+            >
+              {chatHistory.length === 0 ? (
+                <p className="font-bold text-[#004873] text-center text-sm sm:text-base px-4">
+                  Hi there, I am Astro Bot, created by Naman Chaturvedi.
+                  <br />
+                  I am here to answer your questions.
+                </p>
+              ) : (
+                chatHistory.map((chat, index) => (
                   <div
-                    className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl ${
-                      chat.sender === "user"
-                        ? "bg-[#004873] text-white rounded-br-none"
-                        : "bg-white text-gray-800 rounded-bl-none"
+                    key={index}
+                    className={`flex ${
+                      chat.sender === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    {typeof chat.text === "string" ? (
-                      <div
-                        className="
-                          [&_p]:whitespace-pre-wrap 
-                          [&_li]:list-disc [&_li]:ml-6 
-                          [&_strong]:font-bold 
-                          [&_a]:text-blue-900 [&_a]:italic
-                        "
-                      >
-                        <Streamdown>{chat.text}</Streamdown>
-                      </div>
-                    ) : (
-                      chat.text
-                    )}
+                    <div
+                      className={`max-w-[85%] sm:max-w-xs md:max-w-md lg:max-w-lg px-3 sm:px-4 py-2 rounded-2xl text-sm sm:text-base ${
+                        chat.sender === "user"
+                          ? "bg-[#004873] text-white rounded-br-none"
+                          : "bg-white text-gray-800 rounded-bl-none shadow-sm"
+                      }`}
+                    >
+                      {typeof chat.text === "string" ? (
+                        <div
+                          className="
+                            [&_p]:whitespace-pre-wrap 
+                            [&_li]:list-disc [&_li]:ml-6 
+                            [&_strong]:font-bold 
+                            [&_a]:text-blue-900 [&_a]:italic
+                          "
+                        >
+                          <Streamdown>{chat.text}</Streamdown>
+                        </div>
+                      ) : (
+                        chat.text
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] sm:max-w-xs md:max-w-md lg:max-w-lg px-3 sm:px-4 py-2 rounded-2xl bg-gray-700 rounded-bl-none">
+                    <div className="flex items-center space-x-2">
+                      <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+                      <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+                      <span className="h-2 w-2 bg-white rounded-full animate-pulse"></span>
+                    </div>
                   </div>
                 </div>
-              ))
-            )}
+              )}
+            </div>
 
-            {loading && (
-              <div className="flex justify-start">
-                <div className="max-w-xs md:max-w-md lg:max-w-lg px-4 py-2 rounded-2xl bg-gray-700 rounded-bl-none">
-                  <div className="flex items-center space-x-2">
-                    <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-                    <span className="h-2 w-2 bg-white rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-                    <span className="h-2 w-2 bg-white rounded-full animate-pulse"></span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input Box */}
-          <div className="relative flex z-10 items-center">
-            <textarea
-              id="chat-input"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Send a message"
-              rows={1}
-              className="w-full px-4 py-4 pr-14 text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none"
-            />
-            <button
-              onClick={handleChat}
-              disabled={loading}
-              className="absolute right-3 flex items-center justify-center h-10 w-10 bg-white text-[#004873] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00A1FF] hover:bg-[#004873] hover:text-white disabled:bg-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-all"
-              aria-label="Send chat message"
-            >
-              <CircleChevronRight className="w-5 h-5" />
-            </button>
+            {/* Input Box */}
+            <div className="flex-shrink-0 relative flex items-center">
+              <textarea
+                id="chat-input"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Send a message"
+                rows={1}
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 pr-12 sm:pr-14 text-sm sm:text-base text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none min-h-[48px] max-h-32"
+                style={{
+                  height: 'auto',
+                  minHeight: '48px'
+                }}
+              />
+              <button
+                onClick={handleChat}
+                disabled={loading}
+                className="absolute right-2 sm:right-3 flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 bg-white text-[#004873] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00A1FF] hover:bg-[#004873] hover:text-white disabled:bg-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-all"
+                aria-label="Send chat message"
+              >
+                <CircleChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </main>
