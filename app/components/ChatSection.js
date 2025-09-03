@@ -134,6 +134,36 @@ export default function Home() {
     }
   };
 
+  // Function to process links and convert domain names to clickable links
+  const processLinks = (text) => {
+    // First process the text with Streamdown for markdown
+    const streamdownProcessor = new Streamdown();
+    let processedText = streamdownProcessor.render(text);
+    
+    // Domain suffixes to detect
+    const domainSuffixes = [
+      '.com', '.net', '.org', '.edu', '.gov', '.mil', '.int',
+      '.co', '.io', '.ai', '.tech', '.dev', '.app', '.blog',
+      '.info', '.biz', '.name', '.pro', '.museum', '.aero',
+      '.coop', '.jobs', '.travel', '.xxx', '.post', '.tel',
+      '.asia', '.cat', '.mobi', '.xxx', '.arpa'
+    ];
+    
+    // Create a regex pattern for domain detection
+    const domainPattern = new RegExp(
+      `\\b([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+(${domainSuffixes.map(s => s.slice(1)).join('|')})\\b(?![^<]*>)`,
+      'gi'
+    );
+    
+    // Replace domain matches with clickable links
+    processedText = processedText.replace(domainPattern, (match) => {
+      const url = match.startsWith('http') ? match : `https://${match}`;
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${match}</a>`;
+    });
+    
+    return processedText;
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar with overlay on mobile */}
@@ -167,7 +197,7 @@ export default function Home() {
           </button>
 
           <h1 className="font-bold text-xl sm:text-2xl md:text-3xl text-center bg-clip-text bg-black flex-1">
-            <span className="px-4 py-2 bg-black rounded-2xl">Astro Bot</span>
+            <span className="px-4 py-2 bg-white rounded-2xl">Astro Bot</span>
           </h1>
           
           {/* Spacer to center the title */}
@@ -184,7 +214,7 @@ export default function Home() {
             >
               {chatHistory.length === 0 ? (
                 <p className="font-bold text-[#004873] text-center text-sm sm:text-base px-4">
-                  Hi there, I am Astro Bot, created by Naman Chaturvedi.
+                  Hi there, I am Astra Bot, created by Naman Chaturvedi.
                   <br />
                   I am here to answer your questions.
                 </p>
