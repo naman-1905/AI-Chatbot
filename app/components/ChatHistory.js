@@ -1,7 +1,8 @@
 "use client";
 
-import { Plus, MessageSquare, X, RefreshCw } from "lucide-react";
+import { Plus, MessageSquare, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { saveChatHistory, loadChatHistory } from "../utils/chatStore";
 
 function HistoryItem({ chatChannel, totalMessages, onSelect, isActive }) {
   return (
@@ -12,8 +13,8 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, isActive }) {
         onSelect(chatChannel);
       }}
       className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
-        isActive 
-          ? "bg-[#005A8D] text-white" 
+        isActive
+          ? "bg-[#005A8D] text-white"
           : "text-[#F8F9FA] hover:bg-[#005A8D]"
       }`}
     >
@@ -21,88 +22,98 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, isActive }) {
       <div className="flex-grow truncate">
         <div className="truncate">{chatChannel}</div>
         <div className="text-xs text-gray-400">
-          {totalMessages} message{totalMessages !== 1 ? 's' : ''}
+          {totalMessages} message{totalMessages !== 1 ? "s" : ""}
         </div>
       </div>
     </a>
   );
 }
 
-export default function Sidebar({ 
-  isOpen, 
-  onClose, 
-  setChatChannel, 
-  setChatHistory, 
+export default function Sidebar({
+  isOpen,
+  onClose,
+  setChatChannel,
+  setChatHistory,
   currentChatChannel,
   initialChatChannel,
-  isInitialized
+  isInitialized,
 }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch chat history on component mount
   useEffect(() => {
     fetchChatHistory();
   }, []);
 
-  // Add the initial chat channel to history when it's created
   useEffect(() => {
     if (initialChatChannel && isInitialized) {
-      // Check if this channel is already in history
-      const exists = history.some(item => item.chat_channel === initialChatChannel);
-      if (!exists) {
-        const newChatItem = {
-          chat_channel: initialChatChannel,
-          total_messages: 1, // Initial greeting message
-          word_count: 50, // Approximate
-          messages: []
-        };
-        setHistory(prev => [newChatItem, ...prev]);
-      }
+      setHistory((prev) => {
+        const exists = prev.some(
+          (item) => item.chat_channel === initialChatChannel
+        );
+        if (exists) return prev;
+
+        return [
+          {
+            chat_channel: initialChatChannel,
+            total_messages: 1,
+            word_count: 50,
+            messages: [],
+          },
+          ...prev,
+        ];
+      });
     }
-  }, [initialChatChannel, isInitialized, history]);
+  }, [initialChatChannel, isInitialized]);
 
   async function fetchChatHistory() {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          admin: process.env.NEXT_PUBLIC_ADMIN,
-          chat_channel: "", // Empty string to get all channels for this user
-          user_id: "demo_user", // TODO: generate/persist user_id
-          limit: 50
-        }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/history`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            admin: process.env.NEXT_PUBLIC_ADMIN,
+            chat_channel: "",
+            user_id: "demo_user",
+            limit: 50,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
-      if (data.success) {
-        // If the API returns multiple chat channels, we'll need to handle that
-        // For now, assuming we need to make separate calls for each channel
-        // or the API returns a list of channels
-        
-        // This is a placeholder - you might need to adjust based on actual API behavior
-        // If the API returns all user's chat channels in one call:
-        if (Array.isArray(data.chat_channels)) {
-          setHistory(data.chat_channels);
-        } else {
-          // If it's a single channel response, we might need a different endpoint
-          // or make multiple calls to get all user channels
-          console.warn("API response structure not as expected for getting all user channels");
-          setHistory([]);
-        }
-      } else {
-        setError("Failed to fetch chat history");
+      let merged = [];
+
+      if (data.success && Array.isArray(data.chat_channels)) {
+        merged = data.chat_channels;
       }
+
+      const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
+      for (const [channel, messages] of Object.entries(localChats)) {
+        const exists = merged.some((item) => item.chat_channel === channel);
+        if (!exists) {
+          merged.push({
+            chat_channel: channel,
+            total_messages: messages.length,
+            word_count: messages.reduce(
+              (sum, m) => sum + (m.text?.length || 0),
+              0
+            ),
+            messages,
+          });
+        }
+      }
+
+      setHistory(merged);
     } catch (err) {
       console.error("Error fetching chat history:", err);
       setError("Failed to load chat history");
@@ -112,35 +123,37 @@ export default function Sidebar({
   }
 
   async function loadChatChannel(chatChannel) {
-    setLoading(true);
-    
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          admin: process.env.NEXT_PUBLIC_ADMIN,
-          chat_channel: chatChannel,
-          user_id: "demo_user", // TODO: generate/persist user_id
-          limit: 50
-        }),
-      });
+    setChatChannel(chatChannel);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    const localMessages = loadChatHistory(chatChannel);
+    if (localMessages.length > 0) {
+      setChatHistory(localMessages);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/history`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            admin: process.env.NEXT_PUBLIC_ADMIN,
+            chat_channel: chatChannel,
+            user_id: "demo_user",
+            limit: 50,
+          }),
+        }
+      );
 
       const data = await response.json();
-      
       if (data.success) {
-        setChatChannel(chatChannel);
         setChatHistory(data.messages || []);
-      } else {
-        setError("Failed to load chat messages");
+        saveChatHistory(chatChannel, data.messages || []);
       }
     } catch (err) {
       console.error("Error loading chat channel:", err);
-      setError("Failed to load chat messages");
     } finally {
       setLoading(false);
     }
@@ -152,66 +165,71 @@ export default function Sidebar({
     setChatHistory([]);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/greeting`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          admin: process.env.NEXT_PUBLIC_ADMIN,
-          user_id: "demo_user", // TODO: generate/persist user_id
-          chat_channel: channel,
-        }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/greeting`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            admin: process.env.NEXT_PUBLIC_ADMIN,
+            user_id: "demo_user",
+            chat_channel: channel,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
+      let greetingMessage;
+
       if (data.success) {
-        // Set the greeting message as the first chat message
-        const greetingMessage = {
+        greetingMessage = {
           sender: "ai",
           text: data.data.greeting,
           timestamp: data.data.timestamp,
-          bot_name: data.data.bot_name
+          bot_name: data.data.bot_name,
         };
-        
-        setChatHistory([greetingMessage]);
-
-        // Add the new chat to history
-        const newChatItem = {
-          chat_channel: channel,
-          total_messages: 1,
-          word_count: data.data.greeting.length,
-          messages: [greetingMessage]
-        };
-        
-        setHistory((prev) => [newChatItem, ...prev]);
       } else {
-        throw new Error("Failed to get greeting from server");
+        throw new Error("Failed to get greeting");
       }
-    } catch (err) {
-      console.error("Error starting new chat:", err);
-      setError("Failed to start new chat");
-      
-      // Fallback greeting
-      const fallbackGreeting = {
-        sender: "ai",
-        text: "Hello! I'm AstroBot. How can I help you today?",
-        timestamp: new Date().toISOString()
-      };
-      setChatHistory([fallbackGreeting]);
 
-      // Add fallback chat to history
+      setChatHistory([greetingMessage]);
+
       const newChatItem = {
         chat_channel: channel,
         total_messages: 1,
-        word_count: fallbackGreeting.text.length,
-        messages: [fallbackGreeting]
+        word_count: greetingMessage.text.length,
+        messages: [greetingMessage],
       };
-      
-      setHistory((prev) => [newChatItem, ...prev]);
+
+      setHistory((prev) => {
+        const exists = prev.some((item) => item.chat_channel === channel);
+        if (exists) return prev;
+        return [newChatItem, ...prev];
+      });
+    } catch (err) {
+      console.error("Error starting new chat:", err);
+      setError("Failed to start new chat");
+
+      const fallbackGreeting = {
+        sender: "ai",
+        text: "Hello! I'm AstroBot. How can I help you today?",
+        timestamp: new Date().toISOString(),
+      };
+      setChatHistory([fallbackGreeting]);
+
+      setHistory((prev) => [
+        {
+          chat_channel: channel,
+          total_messages: 1,
+          word_count: fallbackGreeting.text.length,
+          messages: [fallbackGreeting],
+        },
+        ...prev,
+      ]);
     }
   }
 
@@ -243,16 +261,9 @@ export default function Sidebar({
         </button>
       </div>
 
-      <div className="flex items-center justify-between mb-2">
+      {/* History header without reload button */}
+      <div className="flex items-center mb-2">
         <p className="text-xs font-semibold text-gray-400 px-3">History</p>
-        <button
-          onClick={fetchChatHistory}
-          disabled={loading}
-          className="p-1 rounded hover:bg-[#005A8D] transition-colors disabled:opacity-50"
-          aria-label="Refresh history"
-        >
-          <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-        </button>
       </div>
 
       <nav className="flex-1 flex flex-col gap-2">
@@ -261,13 +272,13 @@ export default function Sidebar({
             {error}
           </div>
         )}
-        
+
         {loading && history.length === 0 ? (
           <p className="px-3 text-gray-300 text-sm">Loading...</p>
         ) : history.length > 0 ? (
-          history.map((chatItem, index) => (
-            <HistoryItem 
-              key={`${chatItem.chat_channel}-${index}`} // More unique key
+          history.map((chatItem) => (
+            <HistoryItem
+              key={chatItem.chat_channel}
               chatChannel={chatItem.chat_channel}
               totalMessages={chatItem.total_messages}
               onSelect={loadChatChannel}
