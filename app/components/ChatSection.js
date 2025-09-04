@@ -62,7 +62,7 @@ export default function Home() {
         setChatChannel(channel);
         const fallbackGreeting = {
           sender: "ai",
-          text: "Hello! I'm AstroBot. How can I help you today?",
+          text: "Hello! I'm Astro Bot. How can I help you today?",
           timestamp: new Date().toISOString()
         };
         setChatHistory([fallbackGreeting]);
@@ -245,7 +245,7 @@ export default function Home() {
           <div className="w-full max-w-4xl mx-auto flex flex-col flex-1 min-h-0">
             <div
               ref={chatContainerRef}
-              className="flex-1 mb-4 p-3 sm:p-4 bg-[#F8F9FA] border border-blue-200 rounded-lg overflow-y-auto space-y-3 sm:space-y-4 min-h-0"
+              className="h-[650px] mb-6 mt-2 p-3 sm:p-3 bg-[#F8F9FA] border border-blue-200 rounded-lg overflow-y-auto space-y-3 sm:space-y-4 min-h-0"
             >
               {!isInitialized ? (
                 <p className="font-bold text-[#004873] text-center text-sm sm:text-base px-4">
