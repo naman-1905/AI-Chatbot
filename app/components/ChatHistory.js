@@ -33,7 +33,9 @@ export default function Sidebar({
   onClose, 
   setChatChannel, 
   setChatHistory, 
-  currentChatChannel 
+  currentChatChannel,
+  initialChatChannel,
+  isInitialized
 }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -43,6 +45,23 @@ export default function Sidebar({
   useEffect(() => {
     fetchChatHistory();
   }, []);
+
+  // Add the initial chat channel to history when it's created
+  useEffect(() => {
+    if (initialChatChannel && isInitialized) {
+      // Check if this channel is already in history
+      const exists = history.some(item => item.chat_channel === initialChatChannel);
+      if (!exists) {
+        const newChatItem = {
+          chat_channel: initialChatChannel,
+          total_messages: 1, // Initial greeting message
+          word_count: 50, // Approximate
+          messages: []
+        };
+        setHistory(prev => [newChatItem, ...prev]);
+      }
+    }
+  }, [initialChatChannel, isInitialized, history]);
 
   async function fetchChatHistory() {
     setLoading(true);
@@ -133,7 +152,7 @@ export default function Sidebar({
     setChatHistory([]);
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/greeting`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/greeting`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -143,18 +162,56 @@ export default function Sidebar({
         }),
       });
 
-      // Add the new chat to history
-      const newChatItem = {
-        chat_channel: channel,
-        total_messages: 1,
-        word_count: 0,
-        messages: []
-      };
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      setHistory((prev) => [newChatItem, ...prev]);
+      if (data.success) {
+        // Set the greeting message as the first chat message
+        const greetingMessage = {
+          sender: "ai",
+          text: data.data.greeting,
+          timestamp: data.data.timestamp,
+          bot_name: data.data.bot_name
+        };
+        
+        setChatHistory([greetingMessage]);
+
+        // Add the new chat to history
+        const newChatItem = {
+          chat_channel: channel,
+          total_messages: 1,
+          word_count: data.data.greeting.length,
+          messages: [greetingMessage]
+        };
+        
+        setHistory((prev) => [newChatItem, ...prev]);
+      } else {
+        throw new Error("Failed to get greeting from server");
+      }
     } catch (err) {
       console.error("Error starting new chat:", err);
       setError("Failed to start new chat");
+      
+      // Fallback greeting
+      const fallbackGreeting = {
+        sender: "ai",
+        text: "Hello! I'm AstroBot. How can I help you today?",
+        timestamp: new Date().toISOString()
+      };
+      setChatHistory([fallbackGreeting]);
+
+      // Add fallback chat to history
+      const newChatItem = {
+        chat_channel: channel,
+        total_messages: 1,
+        word_count: fallbackGreeting.text.length,
+        messages: [fallbackGreeting]
+      };
+      
+      setHistory((prev) => [newChatItem, ...prev]);
     }
   }
 
@@ -210,7 +267,7 @@ export default function Sidebar({
         ) : history.length > 0 ? (
           history.map((chatItem, index) => (
             <HistoryItem 
-              key={chatItem.chat_channel || index}
+              key={`${chatItem.chat_channel}-${index}`} // More unique key
               chatChannel={chatItem.chat_channel}
               totalMessages={chatItem.total_messages}
               onSelect={loadChatChannel}
