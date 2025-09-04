@@ -5,6 +5,7 @@ import { CircleChevronRight, Menu, PanelLeft } from "lucide-react";
 import Link from "next/link";
 import Streamdown from "streamdown";
 import Sidebar from "./ChatHistory";
+import { saveChatHistory } from "../utils/chatStore";
 
 export default function Home() {
   const [message, setMessage] = useState("");
@@ -37,9 +38,7 @@ export default function Home() {
           }),
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
         
@@ -50,8 +49,8 @@ export default function Home() {
             timestamp: data.data.timestamp,
             bot_name: data.data.bot_name
           };
-          
           setChatHistory([greetingMessage]);
+          saveChatHistory(channel, [greetingMessage]); // ✅ moved here
         } else {
           throw new Error("Failed to get greeting from server");
         }
@@ -59,12 +58,15 @@ export default function Home() {
         console.error("Error initializing chat:", err);
         
         // Fallback greeting
+        const channel = `chat_${crypto.randomUUID()}`;
+        setChatChannel(channel);
         const fallbackGreeting = {
           sender: "ai",
           text: "Hello! I'm AstroBot. How can I help you today?",
           timestamp: new Date().toISOString()
         };
         setChatHistory([fallbackGreeting]);
+        saveChatHistory(channel, [fallbackGreeting]); // ✅ also saved
       } finally {
         setLoading(false);
         setIsInitialized(true);
@@ -72,7 +74,7 @@ export default function Home() {
     };
 
     initializeChat();
-  }, []); // Empty dependency array means this runs once on mount
+  }, [isInitialized, userId]);
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
@@ -86,7 +88,11 @@ export default function Home() {
     if (!message.trim() || loading || !chatChannel) return;
 
     const newUserMessage = { sender: "user", text: message };
-    setChatHistory((prev) => [...prev, newUserMessage]);
+    setChatHistory((prev) => {
+      const updated = [...prev, newUserMessage];
+      saveChatHistory(chatChannel, updated); // ✅ save after sending
+      return updated;
+    });
     setMessage("");
     setLoading(true);
 
@@ -96,7 +102,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          admin: process.env.NEXT_PUBLIC_ADMIN, // Use environment variable
+          admin: process.env.NEXT_PUBLIC_ADMIN,
           user_id: userId,
           chat_channel: chatChannel,
           use_context: true,
@@ -109,16 +115,15 @@ export default function Home() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let aiText = "";
-      let aiMessageAdded = false; // track if we've inserted the AI bubble yet
+      let aiMessageAdded = false;
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-
-        // 🔥 Filter SSE lines
         const lines = chunk.split("\n").filter((line) => line.startsWith("data:"));
+
         for (const line of lines) {
           try {
             const jsonStr = line.replace(/^data:\s*/, "");
@@ -126,31 +131,31 @@ export default function Home() {
 
             const data = JSON.parse(jsonStr);
 
-            if (data.type === "metadata") {
-              // Metadata is safe, but don't show in chat
-              console.log("Bot Metadata:", data.bot_name, data.admin_name);
-              continue;
-            }
+            if (data.type === "metadata") continue;
 
             if (data.type === "response") {
-              // 🚫 Skip unwanted connection error filler text
               const cleanedChunk = data.chunk.replace(
-                /I apologize, but I cannot provide a response to that query due to content guidelines.\ Please try rephrasing your question\./g,
+                /I apologize, but I cannot provide a response.*guidelines\./g,
                 ""
               );
 
-              if (!cleanedChunk) continue; // skip empty chunks
+              if (!cleanedChunk) continue;
 
               if (!aiMessageAdded) {
-                setChatHistory((prev) => [...prev, { sender: "ai", text: "" }]);
+                setChatHistory((prev) => {
+                  const updated = [...prev, { sender: "ai", text: "" }];
+                  saveChatHistory(chatChannel, updated);
+                  return updated;
+                });
                 aiMessageAdded = true;
               }
 
               aiText += cleanedChunk;
               setChatHistory((prev) => {
-                const newHistory = [...prev];
-                newHistory[newHistory.length - 1] = { sender: "ai", text: aiText };
-                return newHistory;
+                const updated = [...prev];
+                updated[updated.length - 1] = { sender: "ai", text: aiText };
+                saveChatHistory(chatChannel, updated);
+                return updated;
               });
             }
           } catch (err) {
@@ -192,39 +197,8 @@ export default function Home() {
     }
   };
 
-  // Function to process links and convert domain names to clickable links
-  const processLinks = (text) => {
-    // First process the text with Streamdown for markdown
-    const streamdownProcessor = new Streamdown();
-    let processedText = streamdownProcessor.render(text);
-    
-    // Domain suffixes to detect
-    const domainSuffixes = [
-      '.com', '.net', '.org', '.edu', '.gov', '.mil', '.int',
-      '.co', '.io', '.ai', '.tech', '.dev', '.app', '.blog',
-      '.info', '.biz', '.name', '.pro', '.museum', '.aero',
-      '.coop', '.jobs', '.travel', '.xxx', '.post', '.tel',
-      '.asia', '.cat', '.mobi', '.xxx', '.arpa'
-    ];
-    
-    // Create a regex pattern for domain detection
-    const domainPattern = new RegExp(
-      `\\b([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+(${domainSuffixes.map(s => s.slice(1)).join('|')})\\b(?![^<]*>)`,
-      'gi'
-    );
-    
-    // Replace domain matches with clickable links
-    processedText = processedText.replace(domainPattern, (match) => {
-      const url = match.startsWith('http') ? match : `https://${match}`;
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${match}</a>`;
-    });
-    
-    return processedText;
-  };
-
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* Sidebar with overlay on mobile */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" 
@@ -238,12 +212,12 @@ export default function Home() {
         setChatChannel={setChatChannel}
         setChatHistory={setChatHistory}
         currentChatChannel={chatChannel}
-        initialChatChannel={chatChannel} // Pass the auto-created channel
-        isInitialized={isInitialized} // Pass initialization status
+        initialChatChannel={chatChannel}
+        isInitialized={isInitialized}
       />
 
       <main className="relative flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Header with toggle button */}
+        {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 bg-gray-100">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -257,11 +231,10 @@ export default function Home() {
             )}
           </button>
 
-          <h1 className="font-bold text-xl sm:text-2xl md:text-3xl text-center bg-clip-text bg-black flex-1">
+          <h1 className="font-bold text-xl sm:text-2xl md:text-3xl text-center flex-1">
             <span className="px-4 py-2 text-black rounded-2xl">Astro Bot</span>
           </h1>
           
-          {/* Chat channel indicator */}
           <div className="text-xs text-gray-500 max-w-20 truncate">
             {chatChannel ? chatChannel : "Loading..."}
           </div>
@@ -270,7 +243,6 @@ export default function Home() {
         {/* Chat container */}
         <div className="flex-1 flex flex-col min-h-0 px-4 pb-4">
           <div className="w-full max-w-4xl mx-auto flex flex-col flex-1 min-h-0">
-            {/* Chat Messages */}
             <div
               ref={chatContainerRef}
               className="flex-1 mb-4 p-3 sm:p-4 bg-[#F8F9FA] border border-blue-200 rounded-lg overflow-y-auto space-y-3 sm:space-y-4 min-h-0"
@@ -299,16 +271,7 @@ export default function Home() {
                       }`}
                     >
                       {typeof chat.text === "string" ? (
-                        <div
-                          className="
-                            [&_p]:whitespace-pre-wrap 
-                            [&_li]:list-disc [&_li]:ml-6 
-                            [&_strong]:font-bold 
-                            [&_a]:text-blue-900 [&_a]:italic
-                          "
-                        >
-                          <Streamdown>{chat.text}</Streamdown>
-                        </div>
+                        <Streamdown>{chat.text}</Streamdown>
                       ) : (
                         chat.text
                       )}
@@ -330,7 +293,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* Input Box */}
+            {/* Input */}
             <div className="flex-shrink-0 relative flex items-center">
               <textarea
                 id="chat-input"
@@ -341,10 +304,6 @@ export default function Home() {
                 disabled={!isInitialized || !chatChannel}
                 rows={1}
                 className="w-full px-3 sm:px-4 py-3 sm:py-4 pr-12 sm:pr-14 text-sm sm:text-base text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none min-h-[48px] max-h-32 disabled:bg-gray-200 disabled:cursor-not-allowed"
-                style={{
-                  height: 'auto',
-                  minHeight: '48px'
-                }}
               />
               <button
                 onClick={handleChat}
