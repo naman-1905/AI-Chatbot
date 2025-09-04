@@ -10,11 +10,69 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
-  const [chatChannel, setChatChannel] = useState(""); // Start empty, let sidebar handle initial setup
+  const [chatChannel, setChatChannel] = useState(""); 
   const [userId] = useState("demo_user"); // TODO: generate/persist user_id
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const chatContainerRef = useRef(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Auto-start chat when component mounts
+  useEffect(() => {
+    const initializeChat = async () => {
+      if (isInitialized) return; // Prevent multiple initializations
+      
+      try {
+        const channel = `chat_${crypto.randomUUID()}`;
+        setChatChannel(channel);
+        setLoading(true);
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/greeting`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            admin: process.env.NEXT_PUBLIC_ADMIN,
+            user_id: userId,
+            chat_channel: channel,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          const greetingMessage = {
+            sender: "ai",
+            text: data.data.greeting,
+            timestamp: data.data.timestamp,
+            bot_name: data.data.bot_name
+          };
+          
+          setChatHistory([greetingMessage]);
+        } else {
+          throw new Error("Failed to get greeting from server");
+        }
+      } catch (err) {
+        console.error("Error initializing chat:", err);
+        
+        // Fallback greeting
+        const fallbackGreeting = {
+          sender: "ai",
+          text: "Hello! I'm AstroBot. How can I help you today?",
+          timestamp: new Date().toISOString()
+        };
+        setChatHistory([fallbackGreeting]);
+      } finally {
+        setLoading(false);
+        setIsInitialized(true);
+      }
+    };
+
+    initializeChat();
+  }, []); // Empty dependency array means this runs once on mount
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
@@ -23,40 +81,6 @@ export default function Home() {
         chatContainerRef.current.scrollHeight;
     }
   }, [chatHistory]);
-
-  // Load initial greeting when chat channel changes
-  useEffect(() => {
-    if (chatChannel && chatHistory.length === 0) {
-      loadInitialGreeting();
-    }
-  }, [chatChannel]);
-
-  const loadInitialGreeting = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/greeting`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          admin: process.env.NEXT_PUBLIC_ADMIN,
-          user_id: userId,
-          chat_channel: chatChannel,
-        }),
-      });
-
-      if (!res.ok) {
-        console.error("Failed to load greeting");
-        return;
-      }
-
-      // If the greeting endpoint returns a message, we could handle it here
-      // For now, just show the default greeting
-      if (chatHistory.length === 0) {
-        setChatHistory([]);
-      }
-    } catch (error) {
-      console.error("Error loading greeting:", error);
-    }
-  };
 
   const handleChat = async () => {
     if (!message.trim() || loading || !chatChannel) return;
@@ -198,13 +222,6 @@ export default function Home() {
     return processedText;
   };
 
-  const getGreetingMessage = () => {
-    if (!chatChannel) {
-      return "Welcome! Please start a new chat or select a chat from the history.";
-    }
-    return "Hi there, I am Astro Bot, created by Naman Chaturvedi.\nI am here to answer your questions.";
-  };
-
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar with overlay on mobile */}
@@ -221,6 +238,8 @@ export default function Home() {
         setChatChannel={setChatChannel}
         setChatHistory={setChatHistory}
         currentChatChannel={chatChannel}
+        initialChatChannel={chatChannel} // Pass the auto-created channel
+        isInitialized={isInitialized} // Pass initialization status
       />
 
       <main className="relative flex-1 flex flex-col h-screen overflow-hidden">
@@ -244,7 +263,7 @@ export default function Home() {
           
           {/* Chat channel indicator */}
           <div className="text-xs text-gray-500 max-w-20 truncate">
-            {chatChannel ? chatChannel : "No chat"}
+            {chatChannel ? chatChannel : "Loading..."}
           </div>
         </div>
 
@@ -256,9 +275,13 @@ export default function Home() {
               ref={chatContainerRef}
               className="flex-1 mb-4 p-3 sm:p-4 bg-[#F8F9FA] border border-blue-200 rounded-lg overflow-y-auto space-y-3 sm:space-y-4 min-h-0"
             >
-              {chatHistory.length === 0 ? (
+              {!isInitialized ? (
                 <p className="font-bold text-[#004873] text-center text-sm sm:text-base px-4">
-                  {getGreetingMessage()}
+                  Initializing AstroBot...
+                </p>
+              ) : chatHistory.length === 0 ? (
+                <p className="font-bold text-[#004873] text-center text-sm sm:text-base px-4">
+                  Getting ready...
                 </p>
               ) : (
                 chatHistory.map((chat, index) => (
@@ -314,8 +337,8 @@ export default function Home() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={chatChannel ? "Send a message" : "Start a new chat first"}
-                disabled={!chatChannel}
+                placeholder={isInitialized && chatChannel ? "Send a message" : "Getting ready..."}
+                disabled={!isInitialized || !chatChannel}
                 rows={1}
                 className="w-full px-3 sm:px-4 py-3 sm:py-4 pr-12 sm:pr-14 text-sm sm:text-base text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none min-h-[48px] max-h-32 disabled:bg-gray-200 disabled:cursor-not-allowed"
                 style={{
@@ -325,7 +348,7 @@ export default function Home() {
               />
               <button
                 onClick={handleChat}
-                disabled={loading || !chatChannel || !message.trim()}
+                disabled={loading || !chatChannel || !message.trim() || !isInitialized}
                 className="absolute right-2 sm:right-3 flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 bg-white text-[#004873] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00A1FF] hover:bg-[#004873] hover:text-white disabled:bg-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-all"
                 aria-label="Send chat message"
               >
