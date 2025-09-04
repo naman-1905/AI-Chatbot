@@ -10,7 +10,8 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
-  const [chatChannel, setChatChannel] = useState("chat_session_001"); // default session id or generate dynamically
+  const [chatChannel, setChatChannel] = useState(""); // Start empty, let sidebar handle initial setup
+  const [userId] = useState("demo_user"); // TODO: generate/persist user_id
 
   const chatContainerRef = useRef(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -23,8 +24,42 @@ export default function Home() {
     }
   }, [chatHistory]);
 
+  // Load initial greeting when chat channel changes
+  useEffect(() => {
+    if (chatChannel && chatHistory.length === 0) {
+      loadInitialGreeting();
+    }
+  }, [chatChannel]);
+
+  const loadInitialGreeting = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/greeting`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          admin: process.env.NEXT_PUBLIC_ADMIN,
+          user_id: userId,
+          chat_channel: chatChannel,
+        }),
+      });
+
+      if (!res.ok) {
+        console.error("Failed to load greeting");
+        return;
+      }
+
+      // If the greeting endpoint returns a message, we could handle it here
+      // For now, just show the default greeting
+      if (chatHistory.length === 0) {
+        setChatHistory([]);
+      }
+    } catch (error) {
+      console.error("Error loading greeting:", error);
+    }
+  };
+
   const handleChat = async () => {
-    if (!message.trim() || loading) return;
+    if (!message.trim() || loading || !chatChannel) return;
 
     const newUserMessage = { sender: "user", text: message };
     setChatHistory((prev) => [...prev, newUserMessage]);
@@ -37,8 +72,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
-          admin: "naman", // ✅ safe to expose
-          user_id: "user_12345", // replace with persistent user id
+          admin: process.env.NEXT_PUBLIC_ADMIN, // Use environment variable
+          user_id: userId,
           chat_channel: chatChannel,
           use_context: true,
           context_limit: 3,
@@ -77,7 +112,6 @@ export default function Home() {
               // 🚫 Skip unwanted connection error filler text
               const cleanedChunk = data.chunk.replace(
                 /I apologize, but I cannot provide a response to that query due to content guidelines.\ Please try rephrasing your question\./g,
-                
                 ""
               );
 
@@ -164,6 +198,13 @@ export default function Home() {
     return processedText;
   };
 
+  const getGreetingMessage = () => {
+    if (!chatChannel) {
+      return "Welcome! Please start a new chat or select a chat from the history.";
+    }
+    return "Hi there, I am Astro Bot, created by Naman Chaturvedi.\nI am here to answer your questions.";
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar with overlay on mobile */}
@@ -179,6 +220,7 @@ export default function Home() {
         onClose={() => setIsSidebarOpen(false)}
         setChatChannel={setChatChannel}
         setChatHistory={setChatHistory}
+        currentChatChannel={chatChannel}
       />
 
       <main className="relative flex-1 flex flex-col h-screen overflow-hidden">
@@ -200,8 +242,10 @@ export default function Home() {
             <span className="px-4 py-2 text-black rounded-2xl">Astro Bot</span>
           </h1>
           
-          {/* Spacer to center the title */}
-          <div className="w-10 h-10"></div>
+          {/* Chat channel indicator */}
+          <div className="text-xs text-gray-500 max-w-20 truncate">
+            {chatChannel ? chatChannel : "No chat"}
+          </div>
         </div>
 
         {/* Chat container */}
@@ -214,9 +258,7 @@ export default function Home() {
             >
               {chatHistory.length === 0 ? (
                 <p className="font-bold text-[#004873] text-center text-sm sm:text-base px-4">
-                  Hi there, I am Astra Bot, created by Naman Chaturvedi.
-                  <br />
-                  I am here to answer your questions.
+                  {getGreetingMessage()}
                 </p>
               ) : (
                 chatHistory.map((chat, index) => (
@@ -272,9 +314,10 @@ export default function Home() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Send a message"
+                placeholder={chatChannel ? "Send a message" : "Start a new chat first"}
+                disabled={!chatChannel}
                 rows={1}
-                className="w-full px-3 sm:px-4 py-3 sm:py-4 pr-12 sm:pr-14 text-sm sm:text-base text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none min-h-[48px] max-h-32"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 pr-12 sm:pr-14 text-sm sm:text-base text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none min-h-[48px] max-h-32 disabled:bg-gray-200 disabled:cursor-not-allowed"
                 style={{
                   height: 'auto',
                   minHeight: '48px'
@@ -282,7 +325,7 @@ export default function Home() {
               />
               <button
                 onClick={handleChat}
-                disabled={loading}
+                disabled={loading || !chatChannel || !message.trim()}
                 className="absolute right-2 sm:right-3 flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 bg-white text-[#004873] rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00A1FF] hover:bg-[#004873] hover:text-white disabled:bg-gray-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-all"
                 aria-label="Send chat message"
               >
