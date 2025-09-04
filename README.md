@@ -21,6 +21,28 @@ A locally-hosted AI chatbot with a frontend built using Next.js and Tailwind CSS
 - **AI Model:** Gemma 1 Billion parameters
 - **Hardware:** Hosted on a personal secondary system running a GTX 1650
 
-## Screenshot
+## Homescreen
 
-![UI](ui.png)
+![UI](/images/ui.png)
+---
+
+## New Chat and Greeting
+- Integrated a Greeting API (/greeting)
+- The API gets called whenever a user starts a new chat
+- A New Chat gets started whenever the user reloads the page
+  
+![New Chat](/images/greeting.png)
+---
+
+## Chat History
+
+- Added Chat Channels to locally store the data for the chat channels
+
+   ![Chat History](/images/ChatHistory.png)
+  ---
+- A user can switch between two different chat channels with this feature, preserving the chat on a particular topic
+  
+<p align="center">
+  <img src="/images/ChatChannel.png" alt="Chat History" />
+</p>
+
