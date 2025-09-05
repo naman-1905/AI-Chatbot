@@ -1,6 +1,6 @@
 # Personal AI Chatbot
 
-A locally-hosted AI chatbot with a frontend built using Next.js and Tailwind CSS, powered by Google Gemma's 1 Billion parameter model running on your discrete GPU.
+A locally-hosted AI chatbot with a frontend built using Next.js and Tailwind CSS, powered by Google Gemma's 1 Billion parameter model running on my GPU locally.
 
 ## Features
 
