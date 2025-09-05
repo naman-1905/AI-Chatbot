@@ -1,35 +1,98 @@
 "use client";
 
-import { Plus, MessageSquare, X, RefreshCw } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Plus, MessageSquare, X, RefreshCw, Trash2 } from "lucide-react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { saveChatHistory, loadChatHistory } from "../utils/chatStore";
 
-function HistoryItem({ chatChannel, totalMessages, onSelect, isActive }) {
+function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive }) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!showDeleteConfirm) {
+      setShowDeleteConfirm(true);
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await onDelete(chatChannel);
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancel = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowDeleteConfirm(false);
+  };
+
   return (
-    <a
-      href="#"
-      onClick={(e) => {
-        e.preventDefault();
-        onSelect(chatChannel);
-      }}
-      className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
+    <div
+      className={`flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors group ${
         isActive
           ? "bg-[#005A8D] text-white"
           : "text-[#F8F9FA] hover:bg-[#005A8D]"
       }`}
     >
-      <MessageSquare className="w-4 h-4" />
-      <div className="flex-grow truncate">
-        <div className="truncate">{chatChannel}</div>
-        <div className="text-xs text-gray-400">
-          {totalMessages} message{totalMessages !== 1 ? "s" : ""}
+      <a
+        href="#"
+        onClick={(e) => {
+          e.preventDefault();
+          if (!showDeleteConfirm) {
+            onSelect(chatChannel);
+          }
+        }}
+        className="flex items-center gap-3 flex-1 min-w-0 mr-2"
+      >
+        <MessageSquare className="w-4 h-4 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="truncate text-sm">{chatChannel}</div>
+          <div className="text-xs text-gray-400">
+            {totalMessages} message{totalMessages !== 1 ? "s" : ""}
+          </div>
         </div>
-      </div>
-    </a>
+      </a>
+      
+      {showDeleteConfirm ? (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={handleCancel}
+            className="px-2 py-1 text-xs bg-gray-600 text-white hover:bg-gray-500 rounded"
+            title="Cancel"
+          >
+            ✕
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-500 rounded disabled:opacity-50"
+            title="Confirm delete"
+          >
+            {deleting ? '...' : '✓'}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={handleDelete}
+          className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
+          title="Delete chat"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
+    </div>
   );
 }
 
-export default function Sidebar({
+const Sidebar = forwardRef(function Sidebar({
   isOpen,
   onClose,
   setChatChannel,
@@ -37,11 +100,22 @@ export default function Sidebar({
   currentChatChannel,
   initialChatChannel,
   isInitialized,
-}) {
+  onChatDeleted,
+}, ref) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    removeChatFromHistory: (chatChannel) => {
+      setHistory((prev) => prev.filter(item => item.chat_channel !== chatChannel));
+    },
+    refreshHistory: () => {
+      fetchChatHistory();
+    }
+  }));
 
   useEffect(() => {
     fetchChatHistory();
@@ -50,20 +124,28 @@ export default function Sidebar({
   useEffect(() => {
     if (initialChatChannel && isInitialized) {
       setHistory((prev) => {
-        const exists = prev.some(
-          (item) => item.chat_channel === initialChatChannel
-        );
-        if (exists) return prev;
-
-        return [
-          {
+        const chatMap = new Map();
+        
+        // Add existing chats
+        prev.forEach(chat => {
+          if (chat.chat_channel) {
+            chatMap.set(chat.chat_channel, chat);
+          }
+        });
+        
+        // Add initial chat if it doesn't exist
+        if (!chatMap.has(initialChatChannel)) {
+          chatMap.set(initialChatChannel, {
             chat_channel: initialChatChannel,
             total_messages: 1,
             word_count: 50,
             messages: [],
-          },
-          ...prev,
-        ];
+          });
+        }
+        
+        // Convert back to array and sort
+        return Array.from(chatMap.values())
+          .sort((a, b) => b.total_messages - a.total_messages);
       });
     }
   }, [initialChatChannel, isInitialized]);
@@ -115,15 +197,21 @@ export default function Sidebar({
         apiChats = data.chat_channels;
       }
 
-      // Merge with local storage
+      // Merge with local storage and ensure unique keys
       const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
-      let mergedHistory = [...apiChats];
+      const chatMap = new Map();
 
-      // Add local chats that aren't in API response
+      // First, add API chats to the map
+      apiChats.forEach(chat => {
+        if (chat.chat_channel) {
+          chatMap.set(chat.chat_channel, chat);
+        }
+      });
+
+      // Then, add local chats that aren't in API response
       for (const [channel, messages] of Object.entries(localChats)) {
-        const exists = mergedHistory.some((item) => item.chat_channel === channel);
-        if (!exists && Array.isArray(messages) && messages.length > 0) {
-          mergedHistory.push({
+        if (!chatMap.has(channel) && Array.isArray(messages) && messages.length > 0) {
+          chatMap.set(channel, {
             chat_channel: channel,
             total_messages: messages.length,
             word_count: messages.reduce(
@@ -135,8 +223,10 @@ export default function Sidebar({
         }
       }
 
-      // Sort by most recent activity (you might want to add a last_updated field)
-      mergedHistory.sort((a, b) => b.total_messages - a.total_messages);
+      // Convert map to array and sort
+      const mergedHistory = Array.from(chatMap.values())
+        .filter(chat => chat.chat_channel) // Ensure we have valid chat_channel
+        .sort((a, b) => b.total_messages - a.total_messages);
 
       setHistory(mergedHistory);
     } catch (err) {
@@ -206,10 +296,9 @@ export default function Sidebar({
       // Remove from history state
       setHistory((prev) => prev.filter(item => item.chat_channel !== chatChannel));
 
-      // If this was the current chat, clear it
-      if (currentChatChannel === chatChannel) {
-        setChatChannel("");
-        setChatHistory([]);
+      // If this was the current chat, notify parent to handle it
+      if (currentChatChannel === chatChannel && onChatDeleted) {
+        onChatDeleted(chatChannel);
       }
 
       console.log(`Chat history deleted: ${data.data.messages_deleted} messages`);
@@ -318,15 +407,29 @@ export default function Sidebar({
       setChatHistory([greetingMessage]);
       saveChatHistory(channel, [greetingMessage]);
 
-      // Add to history
-      const newChatItem = {
-        chat_channel: channel,
-        total_messages: 1,
-        word_count: greetingMessage.text.length,
-        messages: [greetingMessage],
-      };
-
-      setHistory((prev) => [newChatItem, ...prev]);
+      // Add to history (avoid duplicates)
+      setHistory((prev) => {
+        const chatMap = new Map();
+        
+        // Add existing chats
+        prev.forEach(chat => {
+          if (chat.chat_channel) {
+            chatMap.set(chat.chat_channel, chat);
+          }
+        });
+        
+        // Add or update the new chat
+        chatMap.set(channel, {
+          chat_channel: channel,
+          total_messages: 1,
+          word_count: greetingMessage.text.length,
+          messages: [greetingMessage],
+        });
+        
+        // Convert back to array and sort
+        return Array.from(chatMap.values())
+          .sort((a, b) => b.total_messages - a.total_messages);
+      });
 
     } catch (err) {
       console.error("Error starting new chat:", err);
@@ -342,15 +445,28 @@ export default function Sidebar({
       setChatHistory([fallbackGreeting]);
       saveChatHistory(channel, [fallbackGreeting]);
 
-      setHistory((prev) => [
-        {
+      setHistory((prev) => {
+        const chatMap = new Map();
+        
+        // Add existing chats
+        prev.forEach(chat => {
+          if (chat.chat_channel) {
+            chatMap.set(chat.chat_channel, chat);
+          }
+        });
+        
+        // Add or update the fallback chat
+        chatMap.set(channel, {
           chat_channel: channel,
           total_messages: 1,
           word_count: fallbackGreeting.text.length,
           messages: [fallbackGreeting],
-        },
-        ...prev,
-      ]);
+        });
+        
+        // Convert back to array and sort
+        return Array.from(chatMap.values())
+          .sort((a, b) => b.total_messages - a.total_messages);
+      });
     }
   }
 
@@ -358,9 +474,9 @@ export default function Sidebar({
     <div
       className={`
         bg-[#004873] text-[#F8F9FA] flex flex-col
-        w-64 h-full p-4 transition-transform duration-300 ease-in-out flex-shrink-0 fixed z-30
+        w-80 h-full p-4 transition-transform duration-300 ease-in-out flex-shrink-0 fixed z-30
         md:relative md:translate-x-0
-        ${isOpen ? "translate-x-0" : "-translate-x-full md:-ml-64"}
+        ${isOpen ? "translate-x-0" : "-translate-x-full md:-ml-80"}
       `}
     >
       <div className="flex items-center justify-between mb-4">
@@ -440,4 +556,6 @@ export default function Sidebar({
       </div>
     </div>
   );
-}
+});
+
+export default Sidebar;
