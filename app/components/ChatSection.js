@@ -343,38 +343,6 @@ export default function Home() {
               {chatChannel ? chatChannel : "Loading..."}
             </div>
             
-            {/* Delete Chat Button */}
-            {chatChannel && isInitialized && (
-              <div className="flex items-center gap-1">
-                {showDeleteConfirm ? (
-                  <>
-                    <button
-                      onClick={() => setShowDeleteConfirm(false)}
-                      className="px-2 py-1 text-xs bg-gray-500 text-white hover:bg-gray-600 rounded transition-colors"
-                      title="Cancel delete"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleDeleteCurrentChat}
-                      disabled={deleting}
-                      className="px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-700 rounded disabled:opacity-50 transition-colors"
-                      title="Confirm delete"
-                    >
-                      {deleting ? 'Deleting...' : 'Delete'}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={handleDeleteCurrentChat}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Delete current chat"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
