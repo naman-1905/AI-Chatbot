@@ -173,6 +173,54 @@ export default function Sidebar({
     setRefreshing(false);
   }
 
+  async function deleteChatHistory(chatChannel) {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/history/${process.env.NEXT_PUBLIC_ADMIN}/demo_user/${encodeURIComponent(chatChannel)}`,
+        {
+          method: "DELETE",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete chat: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || "Failed to delete chat history");
+      }
+
+      // Remove from local storage
+      const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
+      if (localChats[chatChannel]) {
+        delete localChats[chatChannel];
+        localStorage.setItem("chatHistory", JSON.stringify(localChats));
+      }
+
+      // Remove from history state
+      setHistory((prev) => prev.filter(item => item.chat_channel !== chatChannel));
+
+      // If this was the current chat, clear it
+      if (currentChatChannel === chatChannel) {
+        setChatChannel("");
+        setChatHistory([]);
+      }
+
+      console.log(`Chat history deleted: ${data.data.messages_deleted} messages`);
+      
+    } catch (err) {
+      console.error("Error deleting chat history:", err);
+      setError(`Failed to delete chat: ${err.message}`);
+      throw err; // Re-throw so the UI can handle the error state
+    }
+  }
+
   async function loadChatChannel(chatChannel) {
     setChatChannel(chatChannel);
 
@@ -377,6 +425,7 @@ export default function Sidebar({
                 chatChannel={chatItem.chat_channel}
                 totalMessages={chatItem.total_messages}
                 onSelect={loadChatChannel}
+                onDelete={deleteChatHistory}
                 isActive={currentChatChannel === chatItem.chat_channel}
               />
             ))
