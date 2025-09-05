@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CircleChevronRight, Menu, PanelLeft } from "lucide-react";
+import { CircleChevronRight, Menu, PanelLeft, Trash2 } from "lucide-react";
 import Link from "next/link";
 import Streamdown from "streamdown";
 import Sidebar from "./ChatHistory";
@@ -14,6 +14,8 @@ export default function Home() {
   const [chatChannel, setChatChannel] = useState(""); 
   const [userId] = useState("demo_user"); // TODO: generate/persist user_id
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const chatContainerRef = useRef(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -190,6 +192,107 @@ export default function Home() {
     }
   };
 
+  const handleDeleteCurrentChat = async () => {
+    if (!chatChannel || deleting) return;
+
+    if (!showDeleteConfirm) {
+      setShowDeleteConfirm(true);
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/history/${process.env.NEXT_PUBLIC_ADMIN}/demo_user/${encodeURIComponent(chatChannel)}`,
+        {
+          method: "DELETE",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete chat: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || "Failed to delete chat history");
+      }
+
+      // Remove from local storage
+      const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
+      if (localChats[chatChannel]) {
+        delete localChats[chatChannel];
+        localStorage.setItem("chatHistory", JSON.stringify(localChats));
+      }
+
+      console.log(`Chat history deleted: ${data.data.messages_deleted} messages`);
+      
+      // Start a new chat automatically
+      await initializeNewChat();
+      
+    } catch (err) {
+      console.error("Error deleting chat history:", err);
+      alert(`Failed to delete chat: ${err.message}`);
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const initializeNewChat = async () => {
+    try {
+      const channel = `chat_${crypto.randomUUID()}`;
+      setChatChannel(channel);
+      setChatHistory([]);
+      setMessage("");
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/greeting`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          admin: process.env.NEXT_PUBLIC_ADMIN,
+          user_id: userId,
+          chat_channel: channel,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const greetingMessage = {
+          sender: "ai",
+          text: data.data.greeting,
+          timestamp: data.data.timestamp,
+          bot_name: data.data.bot_name
+        };
+        setChatHistory([greetingMessage]);
+        saveChatHistory(channel, [greetingMessage]);
+      } else {
+        throw new Error("Failed to get greeting from server");
+      }
+    } catch (err) {
+      console.error("Error initializing new chat:", err);
+      
+      // Fallback greeting
+      const channel = `chat_${crypto.randomUUID()}`;
+      setChatChannel(channel);
+      const fallbackGreeting = {
+        sender: "ai",
+        text: "Hello! I'm Astro Bot. How can I help you today?",
+        timestamp: new Date().toISOString()
+      };
+      setChatHistory([fallbackGreeting]);
+      saveChatHistory(channel, [fallbackGreeting]);
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -235,8 +338,43 @@ export default function Home() {
             <span className="px-4 py-2 text-black rounded-2xl">Astro Bot</span>
           </h1>
           
-          <div className="text-xs text-gray-500 max-w-20 truncate">
-            {chatChannel ? chatChannel : "Loading..."}
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-gray-500 max-w-20 truncate">
+              {chatChannel ? chatChannel : "Loading..."}
+            </div>
+            
+            {/* Delete Chat Button */}
+            {chatChannel && isInitialized && (
+              <div className="flex items-center gap-1">
+                {showDeleteConfirm ? (
+                  <>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-2 py-1 text-xs bg-gray-500 text-white hover:bg-gray-600 rounded transition-colors"
+                      title="Cancel delete"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteCurrentChat}
+                      disabled={deleting}
+                      className="px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-700 rounded disabled:opacity-50 transition-colors"
+                      title="Confirm delete"
+                    >
+                      {deleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleDeleteCurrentChat}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Delete current chat"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
