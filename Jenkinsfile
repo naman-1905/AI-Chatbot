@@ -6,7 +6,7 @@ pipeline {
         TAG             = "latest"
         REGISTRY        = "10.243.4.236:5000"
         DEPLOYMENT_NAME = "astrobot"
-        DOCKER_HOST     = "tcp://10.243.52.185:2375"
+        DOCKER_HOST     = "tcp://10.243.250.132:2375"
         APP_NETWORK     = "app"
     }
 
