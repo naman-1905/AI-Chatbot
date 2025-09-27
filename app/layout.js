@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Naman's Astro Bot",
-  description: "A Chatbot created using Google's Gemma 1 billion parameter model, created by Half Skirmish",
+  title: "Naman's AI Chatbot",
+  description: "A Chatbot created using Google's Gemma 1 billion parameter model, created by Naman chatu",
 };
 
 export default function RootLayout({ children }) {
