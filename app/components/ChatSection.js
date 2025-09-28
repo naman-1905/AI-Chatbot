@@ -178,7 +178,7 @@ export default function Home() {
               This will hopefully be ready by the first week of October.
               But yeah, this is how you will see the messages. I hope you got an idea of how the responses are streamed.
               I am using Streamdown, a library by Vercel to stream the response. Previously, this was using React Markdown.
-              Thanks for visiting. Please check back later. You can navigate to my website for now. It's :
+              Thanks for visiting. Please check back later. You can navigate to my website for now:
               {" "}
               <Link
                 className="font-bold"
