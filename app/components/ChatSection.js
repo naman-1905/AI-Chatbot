@@ -173,8 +173,13 @@ export default function Home() {
           sender: "ai",
           text: (
             <>
-              Sorry, I couldn&apos;t get a response. Please try again. If the
-              issue persists, contact Naman through his website:{" "}
+              Hi, Naman this side.
+              The Backend for Astro Bot is being migrated to a different system for better responses and more computational headroom.
+              This will hopefully be ready by the first week of October.
+              But yeah, this is how you will see the messages. I hope you got an idea of how the responses are streamed.
+              I am using Streamdown, a library by Vercel to stream the response. Previously, this was using React Markdown.
+              Thanks for visiting. Please check back later. You can navigate to my website for now. It's :
+              {" "}
               <Link
                 className="font-bold"
                 href="https://halfskirmish.com"
