@@ -38,30 +38,25 @@ pipeline {
         stage('Push Docker Images') {
             steps {
                 script {
-                    echo "Logging into Docker registries..."
+                    echo "Logging into Docker registries and pushing images..."
                     withCredentials([usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
-                            echo "$DOCKER_PASS" | docker login ''' + BUILD_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
-                            echo "$DOCKER_PASS" | docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
-                        '''
+                        sh """
+                            # Login to both registries
+                            echo "\$DOCKER_PASS" | docker login ${BUILD_REGISTRY} -u "\$DOCKER_USER" --password-stdin
+                            echo "\$DOCKER_PASS" | docker login ${DEPLOY_REGISTRY} -u "\$DOCKER_USER" --password-stdin
+                            
+                            # Push to build registry
+                            docker push ${BUILD_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                            
+                            # Re-tag and push to deploy registry
+                            docker tag ${BUILD_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DEPLOY_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                            docker push ${DEPLOY_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                            
+                            # Logout from registries
+                            docker logout ${BUILD_REGISTRY} || true
+                            docker logout ${DEPLOY_REGISTRY} || true
+                        """
                     }
-
-                    echo "Pushing image to ${BUILD_REGISTRY}..."
-                    sh """
-                        docker push ${BUILD_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                    """
-
-                    echo "Re-tagging and pushing to ${DEPLOY_REGISTRY}..."
-                    sh """
-                        docker tag ${BUILD_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DEPLOY_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                        docker push ${DEPLOY_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                    """
-
-                    echo "Logout from registries"
-                    sh """
-                        docker logout ${BUILD_REGISTRY} || true
-                        docker logout ${DEPLOY_REGISTRY} || true
-                    """
                 }
             }
         }
@@ -141,5 +136,3 @@ pipeline {
         }
     }
 }
-
-
