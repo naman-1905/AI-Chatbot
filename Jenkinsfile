@@ -74,13 +74,7 @@ pipeline {
                     steps {
                         script {
                             echo "Deploying to Kahitoz Docker host..."
-                            withCredentials([
-                                usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_API_URL', variable: 'API_URL'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_ADMIN', variable: 'ADMIN'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_API_USERNAME', variable: 'API_USERNAME'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_API_PASSWORD', variable: 'API_PASSWORD')
-                            ]) {
+                            withCredentials([usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                                 sh '''
                                     echo "$DOCKER_PASS" | DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
                                     DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker stop ''' + CONTAINER_NAME + ''' || true
@@ -90,10 +84,6 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
-                                        -e NEXT_PUBLIC_API_URL="$API_URL" \
-                                        -e NEXT_PUBLIC_ADMIN="$ADMIN" \
-                                        -e NEXT_PUBLIC_API_USERNAME="$API_USERNAME" \
-                                        -e NEXT_PUBLIC_API_PASSWORD="$API_PASSWORD" \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
@@ -114,10 +104,10 @@ pipeline {
                             echo "Deploying to Naman Docker host..."
                             withCredentials([
                                 usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_API_URL', variable: 'API_URL'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_ADMIN', variable: 'ADMIN'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_API_USERNAME', variable: 'API_USERNAME'),
-                                string(credentialsId: 'naman/NEXT_PUBLIC_API_PASSWORD', variable: 'API_PASSWORD')
+                                string(credentialsId: 'NEXT_PUBLIC_API_URL', variable: 'NEXT_PUBLIC_API_URL'),
+                                string(credentialsId: 'NEXT_PUBLIC_ADMIN', variable: 'NEXT_PUBLIC_ADMIN'),
+                                string(credentialsId: 'NEXT_PUBLIC_API_USERNAME', variable: 'NEXT_PUBLIC_API_USERNAME'),
+                                string(credentialsId: 'NEXT_PUBLIC_API_PASSWORD', variable: 'NEXT_PUBLIC_API_PASSWORD')
                             ]) {
                                 sh '''
                                     echo "$DOCKER_PASS" | DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
@@ -128,10 +118,10 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
-                                        -e NEXT_PUBLIC_API_URL="$API_URL" \
-                                        -e NEXT_PUBLIC_ADMIN="$ADMIN" \
-                                        -e NEXT_PUBLIC_API_USERNAME="$API_USERNAME" \
-                                        -e NEXT_PUBLIC_API_PASSWORD="$API_PASSWORD" \
+                                        -e NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
+                                        -e NEXT_PUBLIC_ADMIN="$NEXT_PUBLIC_ADMIN" \
+                                        -e NEXT_PUBLIC_API_USERNAME="$NEXT_PUBLIC_API_USERNAME" \
+                                        -e NEXT_PUBLIC_API_PASSWORD="$NEXT_PUBLIC_API_PASSWORD" \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
