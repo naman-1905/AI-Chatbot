@@ -75,7 +75,7 @@ pipeline {
                         script {
                             echo "Deploying to Kahitoz Docker host..."
                             withCredentials([
-                                usernamePassword(credentialsId: 'naman/docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
+                                usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
                                 file(credentialsId: 'naman/naman', variable: 'ENV_FILE')
                             ]) {
                                 sh '''
@@ -107,7 +107,7 @@ pipeline {
                         script {
                             echo "Deploying to Naman Docker host..."
                             withCredentials([
-                                usernamePassword(credentialsId: 'naman/docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
+                                usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
                                 file(credentialsId: 'naman/naman', variable: 'ENV_FILE')
                             ]) {
                                 sh '''
