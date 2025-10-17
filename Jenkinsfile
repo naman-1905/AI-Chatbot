@@ -76,7 +76,10 @@ pipeline {
                             echo "Deploying to Kahitoz Docker host..."
                             withCredentials([
                                 usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
-                                file(credentialsId: 'naman/naman', variable: 'ENV_FILE')
+                                string(credentialsId: 'naman/NEXT_PUBLIC_API_URL', variable: 'API_URL'),
+                                string(credentialsId: 'naman/NEXT_PUBLIC_ADMIN', variable: 'ADMIN'),
+                                string(credentialsId: 'naman/NEXT_PUBLIC_API_USERNAME', variable: 'API_USERNAME'),
+                                string(credentialsId: 'naman/NEXT_PUBLIC_API_PASSWORD', variable: 'API_PASSWORD')
                             ]) {
                                 sh '''
                                     echo "$DOCKER_PASS" | DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
@@ -87,7 +90,10 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
-                                        --env-file "$ENV_FILE" \
+                                        -e NEXT_PUBLIC_API_URL="$API_URL" \
+                                        -e NEXT_PUBLIC_ADMIN="$ADMIN" \
+                                        -e NEXT_PUBLIC_API_USERNAME="$API_USERNAME" \
+                                        -e NEXT_PUBLIC_API_PASSWORD="$API_PASSWORD" \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
@@ -108,7 +114,10 @@ pipeline {
                             echo "Deploying to Naman Docker host..."
                             withCredentials([
                                 usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
-                                file(credentialsId: 'naman/naman', variable: 'ENV_FILE')
+                                string(credentialsId: 'naman/NEXT_PUBLIC_API_URL', variable: 'API_URL'),
+                                string(credentialsId: 'naman/NEXT_PUBLIC_ADMIN', variable: 'ADMIN'),
+                                string(credentialsId: 'naman/NEXT_PUBLIC_API_USERNAME', variable: 'API_USERNAME'),
+                                string(credentialsId: 'naman/NEXT_PUBLIC_API_PASSWORD', variable: 'API_PASSWORD')
                             ]) {
                                 sh '''
                                     echo "$DOCKER_PASS" | DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
@@ -119,7 +128,10 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
-                                        --env-file "$ENV_FILE" \
+                                        -e NEXT_PUBLIC_API_URL="$API_URL" \
+                                        -e NEXT_PUBLIC_ADMIN="$ADMIN" \
+                                        -e NEXT_PUBLIC_API_USERNAME="$API_USERNAME" \
+                                        -e NEXT_PUBLIC_API_PASSWORD="$API_PASSWORD" \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
