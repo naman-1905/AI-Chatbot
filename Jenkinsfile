@@ -103,7 +103,6 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
-                                        -p 3000:3000 \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
