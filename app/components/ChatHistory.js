@@ -231,15 +231,15 @@ const Sidebar = forwardRef(function Sidebar({
     setChatChannel(channel);
     setChatHistory([]);
 
-    const fallbackGreeting = {
+    const greeting = {
       sender: "ai",
-      text: "Hello! I'm your assistant. How can I help you today?",
+      text: "Hey there! I'm Astro Bot, Naman's personal AI assistant. I'm here to chat about Naman's projects, skills, and experience. What brings you here today?",
       timestamp: new Date().toISOString(),
-      bot_name: "Assistant",
+      bot_name: "Astro Bot",
     };
     
-    setChatHistory([fallbackGreeting]);
-    saveChatHistory(channel, [fallbackGreeting]);
+    setChatHistory([greeting]);
+    saveChatHistory(channel, [greeting]);
 
     // Add to history (avoid duplicates)
     setHistory((prev) => {
@@ -252,12 +252,12 @@ const Sidebar = forwardRef(function Sidebar({
         }
       });
       
-      // Add or update the fallback chat
+      // Add the new chat
       chatMap.set(channel, {
         chat_channel: channel,
         total_messages: 1,
-        word_count: fallbackGreeting.text.length,
-        messages: [fallbackGreeting],
+        word_count: greeting.text.length,
+        messages: [greeting],
       });
       
       // Convert back to array and sort

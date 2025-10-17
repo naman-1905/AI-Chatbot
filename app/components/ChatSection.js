@@ -28,13 +28,13 @@ export default function Home() {
         const channel = `chat_${crypto.randomUUID()}`;
         setChatChannel(channel);
         
-        const fallbackGreeting = {
+        const greeting = {
           sender: "ai",
-          text: "Hello! I'm Astro Bot. How can I help you today?",
+          text: "Hello! I am Astro Bot, Naman's Personal AI Assistant. I am here to assist you on behalf of Naman. How can I help you today?",
           timestamp: new Date().toISOString()
         };
-        setChatHistory([fallbackGreeting]);
-        saveChatHistory(channel, [fallbackGreeting]);
+        setChatHistory([greeting]);
+        saveChatHistory(channel, [greeting]);
       } catch (err) {
         console.error("Error initializing chat:", err);
       } finally {
@@ -108,32 +108,52 @@ export default function Home() {
       const decoder = new TextDecoder();
       let aiText = "";
       let aiMessageAdded = false;
+      let buffer = "";
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value, { stream: true });
         
-        // Add AI message placeholder if not added yet
-        if (!aiMessageAdded && chunk) {
-          setChatHistory((prev) => {
-            const updated = [...prev, { sender: "ai", text: "" }];
-            saveChatHistory(chatChannel, updated);
-            return updated;
-          });
-          aiMessageAdded = true;
-        }
+        // Split by newlines to process complete lines
+        const lines = buffer.split('\n');
+        
+        // Keep the last incomplete line in buffer
+        buffer = lines.pop() || "";
 
-        // Append chunk to AI text
-        aiText += chunk;
-        
-        setChatHistory((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1] = { sender: "ai", text: aiText };
-          saveChatHistory(chatChannel, updated);
-          return updated;
-        });
+        for (const line of lines) {
+          // Skip empty lines
+          if (!line.trim()) continue;
+          
+          // Parse SSE format: "data: <content>"
+          if (line.startsWith('data:')) {
+            const chunk = line.substring(5).trim(); // Remove "data:" prefix and trim
+            
+            if (!chunk) continue; // Skip empty data
+            
+            // Add AI message placeholder if not added yet
+            if (!aiMessageAdded) {
+              setChatHistory((prev) => {
+                const updated = [...prev, { sender: "ai", text: "" }];
+                saveChatHistory(chatChannel, updated);
+                return updated;
+              });
+              aiMessageAdded = true;
+            }
+
+            // Simply concatenate chunks without adding extra spaces
+            // The backend already includes spaces where needed (like "data: " between words)
+            aiText += chunk;
+            
+            setChatHistory((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { sender: "ai", text: aiText };
+              saveChatHistory(chatChannel, updated);
+              return updated;
+            });
+          }
+        }
       }
 
       // If no response was received, add error message
@@ -203,13 +223,13 @@ export default function Home() {
       setChatHistory([]);
       setMessage("");
 
-      const fallbackGreeting = {
+      const greeting = {
         sender: "ai",
-        text: "Hello! I'm Astro Bot. How can I help you today?",
+        text: "Hello! I am Astro Bot, Naman's Personal AI Assistant. I am here to assist you on behalf of Naman. How can I help you today?",
         timestamp: new Date().toISOString()
       };
-      setChatHistory([fallbackGreeting]);
-      saveChatHistory(channel, [fallbackGreeting]);
+      setChatHistory([greeting]);
+      saveChatHistory(channel, [greeting]);
     } catch (err) {
       console.error("Error initializing new chat:", err);
     }
