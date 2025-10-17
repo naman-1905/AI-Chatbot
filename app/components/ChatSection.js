@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CircleChevronRight, Menu, PanelLeft, Trash2 } from "lucide-react";
+import { CircleChevronRight, Menu, PanelLeft } from "lucide-react";
 import Link from "next/link";
 import Streamdown from "streamdown";
 import Sidebar from "./ChatHistory";
@@ -12,71 +12,38 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatChannel, setChatChannel] = useState(""); 
-  const [userId] = useState("demo_user"); // TODO: generate/persist user_id
+  const [userId] = useState("demo_user");
   const [isInitialized, setIsInitialized] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const chatContainerRef = useRef(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const sidebarRef = useRef(null);
 
   // Auto-start chat when component mounts
   useEffect(() => {
     const initializeChat = async () => {
-      if (isInitialized) return; // Prevent multiple initializations
+      if (isInitialized) return;
       
       try {
         const channel = `chat_${crypto.randomUUID()}`;
         setChatChannel(channel);
-        setLoading(true);
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/greeting`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            admin: process.env.NEXT_PUBLIC_ADMIN,
-            user_id: userId,
-            chat_channel: channel,
-          }),
-        });
-
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-        const data = await response.json();
         
-        if (data.success) {
-          const greetingMessage = {
-            sender: "ai",
-            text: data.data.greeting,
-            timestamp: data.data.timestamp,
-            bot_name: data.data.bot_name
-          };
-          setChatHistory([greetingMessage]);
-          saveChatHistory(channel, [greetingMessage]); // ✅ moved here
-        } else {
-          throw new Error("Failed to get greeting from server");
-        }
-      } catch (err) {
-        console.error("Error initializing chat:", err);
-        
-        // Fallback greeting
-        const channel = `chat_${crypto.randomUUID()}`;
-        setChatChannel(channel);
         const fallbackGreeting = {
           sender: "ai",
           text: "Hello! I'm Astro Bot. How can I help you today?",
           timestamp: new Date().toISOString()
         };
         setChatHistory([fallbackGreeting]);
-        saveChatHistory(channel, [fallbackGreeting]); // ✅ also saved
+        saveChatHistory(channel, [fallbackGreeting]);
+      } catch (err) {
+        console.error("Error initializing chat:", err);
       } finally {
-        setLoading(false);
         setIsInitialized(true);
       }
     };
 
     initializeChat();
-  }, [isInitialized, userId]);
+  }, [isInitialized]);
 
   // Auto-scroll when new messages arrive
   useEffect(() => {
@@ -92,28 +59,51 @@ export default function Home() {
     const newUserMessage = { sender: "user", text: message };
     setChatHistory((prev) => {
       const updated = [...prev, newUserMessage];
-      saveChatHistory(chatChannel, updated); // ✅ save after sending
+      saveChatHistory(chatChannel, updated);
       return updated;
     });
+    const currentMessage = message;
     setMessage("");
     setLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/stream`, {
+      const clientName = process.env.NEXT_PUBLIC_ADMIN || 'naman';
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/chat/stream`;
+      
+      // Construct URL with query parameters
+      const url = new URL(apiUrl);
+      url.searchParams.append('client_name', clientName);
+      url.searchParams.append('chat_channel', chatChannel);
+      url.searchParams.append('message', currentMessage);
+
+      // Create authorization header
+      const headers = {
+        "Accept": "text/plain"
+      };
+
+      // Add Basic Auth - REQUIRED for your API
+      if (process.env.NEXT_PUBLIC_API_USERNAME && process.env.NEXT_PUBLIC_API_PASSWORD) {
+        const credentials = btoa(
+          `${process.env.NEXT_PUBLIC_API_USERNAME}:${process.env.NEXT_PUBLIC_API_PASSWORD}`
+        );
+        headers['Authorization'] = `Basic ${credentials}`;
+      } else {
+        console.warn('API credentials not configured. Please set NEXT_PUBLIC_API_USERNAME and NEXT_PUBLIC_API_PASSWORD');
+      }
+
+      const res = await fetch(url.toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          admin: process.env.NEXT_PUBLIC_ADMIN,
-          user_id: userId,
-          chat_channel: chatChannel,
-          use_context: true,
-          context_limit: 3,
-        }),
+        headers: headers,
       });
 
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Authentication failed. Please check your API credentials.');
+        }
+        throw new Error(`Server error: ${res.status}`);
+      }
 
+      // Read the streaming response
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let aiText = "";
@@ -124,128 +114,85 @@ export default function Home() {
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n").filter((line) => line.startsWith("data:"));
-
-        for (const line of lines) {
-          try {
-            const jsonStr = line.replace(/^data:\s*/, "");
-            if (!jsonStr) continue;
-
-            const data = JSON.parse(jsonStr);
-
-            if (data.type === "metadata") continue;
-
-            if (data.type === "response") {
-              const cleanedChunk = data.chunk.replace(
-                /I apologize, but I cannot provide a response.*guidelines\./g,
-                ""
-              );
-
-              if (!cleanedChunk) continue;
-
-              if (!aiMessageAdded) {
-                setChatHistory((prev) => {
-                  const updated = [...prev, { sender: "ai", text: "" }];
-                  saveChatHistory(chatChannel, updated);
-                  return updated;
-                });
-                aiMessageAdded = true;
-              }
-
-              aiText += cleanedChunk;
-              setChatHistory((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = { sender: "ai", text: aiText };
-                saveChatHistory(chatChannel, updated);
-                return updated;
-              });
-            }
-          } catch (err) {
-            console.error("Stream parse error:", err, line);
-          }
+        
+        // Add AI message placeholder if not added yet
+        if (!aiMessageAdded && chunk) {
+          setChatHistory((prev) => {
+            const updated = [...prev, { sender: "ai", text: "" }];
+            saveChatHistory(chatChannel, updated);
+            return updated;
+          });
+          aiMessageAdded = true;
         }
+
+        // Append chunk to AI text
+        aiText += chunk;
+        
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { sender: "ai", text: aiText };
+          saveChatHistory(chatChannel, updated);
+          return updated;
+        });
       }
+
+      // If no response was received, add error message
+      if (!aiMessageAdded || !aiText.trim()) {
+        setChatHistory((prev) => {
+          const updated = [...prev, { 
+            sender: "ai", 
+            text: "I received your message but couldn't generate a response. Please try again." 
+          }];
+          saveChatHistory(chatChannel, updated);
+          return updated;
+        });
+      }
+
     } catch (error) {
-      console.error(error);
-      setChatHistory((prev) => [
-        ...prev,
-        {
+      console.error("Chat error:", error);
+      
+      let errorMessage = "Sorry, I encountered an error. ";
+      
+      if (error.message.includes('Authentication failed')) {
+        errorMessage += "Please check your API credentials in the environment configuration.";
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage += "Unable to connect to the server. Please check your internet connection.";
+      } else {
+        errorMessage += error.message || "Please try again later.";
+      }
+      
+      setChatHistory((prev) => {
+        const updated = [...prev, {
           sender: "ai",
           text: (
             <>
-              Hi, Naman this side.
-              The Backend for Astro Bot is being migrated to a different system for better responses and more computational headroom.
-              This will hopefully be ready by the first week of October.
-              But yeah, this is how you will see the messages. I hope you got an idea of how the responses are streamed.
-              I am using Streamdown, a library by Vercel to stream the response. Previously, this was using React Markdown.
-              Thanks for visiting. Please check back later. You can navigate to my website for now:
+              {errorMessage}
               {" "}
               <Link
-                className="font-bold"
+                className="font-bold underline"
                 href="https://halfskirmish.com"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                halfskirmish.com
+                Visit my website
               </Link>
             </>
           ),
-        },
-      ]);
+        }];
+        saveChatHistory(chatChannel, updated);
+        return updated;
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteCurrentChat = async () => {
-    if (!chatChannel || deleting) return;
-
-    if (!showDeleteConfirm) {
-      setShowDeleteConfirm(true);
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/history/${process.env.NEXT_PUBLIC_ADMIN}/demo_user/${encodeURIComponent(chatChannel)}`,
-        {
-          method: "DELETE",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete chat: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || "Failed to delete chat history");
-      }
-
-      // Remove from local storage
-      const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
-      if (localChats[chatChannel]) {
-        delete localChats[chatChannel];
-        localStorage.setItem("chatHistory", JSON.stringify(localChats));
-      }
-
-      console.log(`Chat history deleted: ${data.data.messages_deleted} messages`);
-      
-      // Start a new chat automatically
+  const handleChatDeleted = async (deletedChannel) => {
+    if (deletedChannel === chatChannel) {
       await initializeNewChat();
-      
-    } catch (err) {
-      console.error("Error deleting chat history:", err);
-      alert(`Failed to delete chat: ${err.message}`);
-    } finally {
-      setDeleting(false);
-      setShowDeleteConfirm(false);
+      if (sidebarRef.current) {
+        sidebarRef.current.refreshHistory();
+      }
     }
   };
 
@@ -256,38 +203,6 @@ export default function Home() {
       setChatHistory([]);
       setMessage("");
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/greeting`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          admin: process.env.NEXT_PUBLIC_ADMIN,
-          user_id: userId,
-          chat_channel: channel,
-        }),
-      });
-
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-      const data = await response.json();
-      
-      if (data.success) {
-        const greetingMessage = {
-          sender: "ai",
-          text: data.data.greeting,
-          timestamp: data.data.timestamp,
-          bot_name: data.data.bot_name
-        };
-        setChatHistory([greetingMessage]);
-        saveChatHistory(channel, [greetingMessage]);
-      } else {
-        throw new Error("Failed to get greeting from server");
-      }
-    } catch (err) {
-      console.error("Error initializing new chat:", err);
-      
-      // Fallback greeting
-      const channel = `chat_${crypto.randomUUID()}`;
-      setChatChannel(channel);
       const fallbackGreeting = {
         sender: "ai",
         text: "Hello! I'm Astro Bot. How can I help you today?",
@@ -295,6 +210,8 @@ export default function Home() {
       };
       setChatHistory([fallbackGreeting]);
       saveChatHistory(channel, [fallbackGreeting]);
+    } catch (err) {
+      console.error("Error initializing new chat:", err);
     }
   };
 
@@ -315,6 +232,7 @@ export default function Home() {
       )}
       
       <Sidebar
+        ref={sidebarRef}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         setChatChannel={setChatChannel}
@@ -322,6 +240,7 @@ export default function Home() {
         currentChatChannel={chatChannel}
         initialChatChannel={chatChannel}
         isInitialized={isInitialized}
+        onChatDeleted={handleChatDeleted}
       />
 
       <main className="relative flex-1 flex flex-col h-screen overflow-hidden">
@@ -344,10 +263,9 @@ export default function Home() {
           </h1>
           
           <div className="flex items-center gap-3">
-            <div className="text-xs text-gray-500 max-w-20 truncate">
-              {chatChannel ? chatChannel : "Loading..."}
+            <div className="text-xs text-gray-500 max-w-32 truncate" title={chatChannel}>
+              {chatChannel ? chatChannel.substring(0, 15) + '...' : "Loading..."}
             </div>
-            
           </div>
         </div>
 
@@ -412,7 +330,7 @@ export default function Home() {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={isInitialized && chatChannel ? "Send a message" : "Getting ready..."}
-                disabled={!isInitialized || !chatChannel}
+                disabled={!isInitialized || !chatChannel || loading}
                 rows={1}
                 className="w-full px-3 sm:px-4 py-3 sm:py-4 pr-12 sm:pr-14 text-sm sm:text-base text-black bg-[#F5F5F5] border-2 border-blue-300 focus:border-blue-500 rounded-lg resize-none focus:outline-none min-h-[48px] max-h-32 disabled:bg-gray-200 disabled:cursor-not-allowed"
               />
