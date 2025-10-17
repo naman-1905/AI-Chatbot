@@ -74,7 +74,10 @@ pipeline {
                     steps {
                         script {
                             echo "Deploying to Kahitoz Docker host..."
-                            withCredentials([usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            withCredentials([
+                                usernamePassword(credentialsId: 'naman/docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
+                                file(credentialsId: 'naman/naman', variable: 'ENV_FILE')
+                            ]) {
                                 sh '''
                                     echo "$DOCKER_PASS" | DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
                                     DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker stop ''' + CONTAINER_NAME + ''' || true
@@ -84,6 +87,7 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
+                                        --env-file "$ENV_FILE" \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + KAHITOZ_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
@@ -102,7 +106,10 @@ pipeline {
                     steps {
                         script {
                             echo "Deploying to Naman Docker host..."
-                            withCredentials([usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            withCredentials([
+                                usernamePassword(credentialsId: 'naman/docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
+                                file(credentialsId: 'naman/naman', variable: 'ENV_FILE')
+                            ]) {
                                 sh '''
                                     echo "$DOCKER_PASS" | DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
                                     DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker stop ''' + CONTAINER_NAME + ''' || true
@@ -112,6 +119,7 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
+                                        --env-file "$ENV_FILE" \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
