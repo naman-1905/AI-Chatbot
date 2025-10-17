@@ -36,11 +36,6 @@ pipeline {
                         string(credentialsId: 'NEXT_PUBLIC_API_USERNAME', variable: 'NEXT_PUBLIC_API_USERNAME'),
                         string(credentialsId: 'NEXT_PUBLIC_API_PASSWORD', variable: 'NEXT_PUBLIC_API_PASSWORD')
                     ]) {
-                        // Debug: Print the values (mask sensitive ones)
-                        echo "API URL: ${NEXT_PUBLIC_API_URL}"
-                        echo "Admin: ${NEXT_PUBLIC_ADMIN}"
-                        echo "Username configured: ${NEXT_PUBLIC_API_USERNAME ? 'Yes' : 'No'}"
-                        
                         sh """
                             docker build \
                                 --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
@@ -131,7 +126,6 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
-                                        -p 3000:3000 \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
