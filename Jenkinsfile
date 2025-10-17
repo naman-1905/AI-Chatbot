@@ -28,9 +28,23 @@ pipeline {
             steps {
                 script {
                     echo "Building Docker image: ${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh """
-                        docker build -t ${BUILD_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
-                    """
+                    
+                    // Load environment variables from Jenkins credentials
+                    withCredentials([
+                        string(credentialsId: 'NEXT_PUBLIC_API_URL', variable: 'NEXT_PUBLIC_API_URL'),
+                        string(credentialsId: 'NEXT_PUBLIC_ADMIN', variable: 'NEXT_PUBLIC_ADMIN'),
+                        string(credentialsId: 'NEXT_PUBLIC_API_USERNAME', variable: 'NEXT_PUBLIC_API_USERNAME'),
+                        string(credentialsId: 'NEXT_PUBLIC_API_PASSWORD', variable: 'NEXT_PUBLIC_API_PASSWORD')
+                    ]) {
+                        sh """
+                            docker build \
+                                --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
+                                --build-arg NEXT_PUBLIC_ADMIN="${NEXT_PUBLIC_ADMIN}" \
+                                --build-arg NEXT_PUBLIC_API_USERNAME="${NEXT_PUBLIC_API_USERNAME}" \
+                                --build-arg NEXT_PUBLIC_API_PASSWORD="${NEXT_PUBLIC_API_PASSWORD}" \
+                                -t ${BUILD_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        """
+                    }
                 }
             }
         }
@@ -102,13 +116,7 @@ pipeline {
                     steps {
                         script {
                             echo "Deploying to Naman Docker host..."
-                            withCredentials([
-                                usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS'),
-                                string(credentialsId: 'NEXT_PUBLIC_API_URL', variable: 'NEXT_PUBLIC_API_URL'),
-                                string(credentialsId: 'NEXT_PUBLIC_ADMIN', variable: 'NEXT_PUBLIC_ADMIN'),
-                                string(credentialsId: 'NEXT_PUBLIC_API_USERNAME', variable: 'NEXT_PUBLIC_API_USERNAME'),
-                                string(credentialsId: 'NEXT_PUBLIC_API_PASSWORD', variable: 'NEXT_PUBLIC_API_PASSWORD')
-                            ]) {
+                            withCredentials([usernamePassword(credentialsId: 'docker_creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                                 sh '''
                                     echo "$DOCKER_PASS" | DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker login ''' + DEPLOY_REGISTRY + ''' -u "$DOCKER_USER" --password-stdin
                                     DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker stop ''' + CONTAINER_NAME + ''' || true
@@ -118,10 +126,6 @@ pipeline {
                                         --name ''' + CONTAINER_NAME + ''' \
                                         --network ''' + NETWORK_NAME + ''' \
                                         --restart always \
-                                        -e NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
-                                        -e NEXT_PUBLIC_ADMIN="$NEXT_PUBLIC_ADMIN" \
-                                        -e NEXT_PUBLIC_API_USERNAME="$NEXT_PUBLIC_API_USERNAME" \
-                                        -e NEXT_PUBLIC_API_PASSWORD="$NEXT_PUBLIC_API_PASSWORD" \
                                         ''' + DEPLOY_REGISTRY + '''/''' + IMAGE_NAME + ''':''' + IMAGE_TAG + '''
                                     DOCKER_HOST=''' + NAMAN_DOCKER_HOST + ''' docker logout ''' + DEPLOY_REGISTRY + ''' || true
                                 '''
