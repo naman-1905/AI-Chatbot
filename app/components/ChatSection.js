@@ -19,6 +19,16 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
 
+  // Debug environment variables on mount
+  useEffect(() => {
+    console.log("=== Environment Variables Debug ===");
+    console.log("API_URL:", process.env.NEXT_PUBLIC_API_URL);
+    console.log("ADMIN:", process.env.NEXT_PUBLIC_ADMIN);
+    console.log("USERNAME:", process.env.NEXT_PUBLIC_API_USERNAME ? "SET" : "NOT SET");
+    console.log("PASSWORD:", process.env.NEXT_PUBLIC_API_PASSWORD ? "SET" : "NOT SET");
+    console.log("===================================");
+  }, []);
+
   // Auto-start chat when component mounts
   useEffect(() => {
     const initializeChat = async () => {
@@ -70,11 +80,19 @@ export default function Home() {
       const clientName = process.env.NEXT_PUBLIC_ADMIN || 'naman';
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/chat/stream`;
       
+      console.log("=== API Request Debug ===");
+      console.log("Client Name:", clientName);
+      console.log("API URL:", apiUrl);
+      console.log("Chat Channel:", chatChannel);
+      console.log("========================");
+      
       // Construct URL with query parameters
       const url = new URL(apiUrl);
       url.searchParams.append('client_name', clientName);
       url.searchParams.append('chat_channel', chatChannel);
       url.searchParams.append('message', currentMessage);
+
+      console.log("Full URL:", url.toString());
 
       // Create authorization header
       const headers = {
@@ -87,20 +105,30 @@ export default function Home() {
           `${process.env.NEXT_PUBLIC_API_USERNAME}:${process.env.NEXT_PUBLIC_API_PASSWORD}`
         );
         headers['Authorization'] = `Basic ${credentials}`;
+        console.log("Authorization header added");
       } else {
-        console.warn('API credentials not configured. Please set NEXT_PUBLIC_API_USERNAME and NEXT_PUBLIC_API_PASSWORD');
+        console.error('API credentials not configured!');
+        console.error('NEXT_PUBLIC_API_USERNAME:', process.env.NEXT_PUBLIC_API_USERNAME ? 'SET' : 'NOT SET');
+        console.error('NEXT_PUBLIC_API_PASSWORD:', process.env.NEXT_PUBLIC_API_PASSWORD ? 'SET' : 'NOT SET');
       }
+
+      console.log("Headers:", { ...headers, Authorization: headers.Authorization ? 'SET' : 'NOT SET' });
 
       const res = await fetch(url.toString(), {
         method: "POST",
         headers: headers,
       });
 
+      console.log("Response status:", res.status);
+      console.log("Response ok:", res.ok);
+
       if (!res.ok) {
         if (res.status === 401) {
           throw new Error('Authentication failed. Please check your API credentials.');
         }
-        throw new Error(`Server error: ${res.status}`);
+        const errorText = await res.text();
+        console.error("Error response:", errorText);
+        throw new Error(`Server error: ${res.status} - ${errorText}`);
       }
 
       // Read the streaming response
@@ -143,7 +171,6 @@ export default function Home() {
             }
 
             // Simply concatenate chunks without adding extra spaces
-            // The backend already includes spaces where needed (like "data: " between words)
             aiText += chunk;
             
             setChatHistory((prev) => {
@@ -158,6 +185,7 @@ export default function Home() {
 
       // If no response was received, add error message
       if (!aiMessageAdded || !aiText.trim()) {
+        console.warn("No AI response received");
         setChatHistory((prev) => {
           const updated = [...prev, { 
             sender: "ai", 
@@ -169,14 +197,17 @@ export default function Home() {
       }
 
     } catch (error) {
-      console.error("Chat error:", error);
+      console.error("=== Chat Error ===");
+      console.error("Error:", error);
+      console.error("Error message:", error.message);
+      console.error("==================");
       
       let errorMessage = "Sorry, I encountered an error. ";
       
       if (error.message.includes('Authentication failed')) {
         errorMessage += "Please check your API credentials in the environment configuration.";
       } else if (error.message.includes('Failed to fetch')) {
-        errorMessage += "Unable to connect to the server. Please check your internet connection.";
+        errorMessage += "Unable to connect to the server. Please check if the API is accessible and CORS is configured correctly.";
       } else {
         errorMessage += error.message || "Please try again later.";
       }
