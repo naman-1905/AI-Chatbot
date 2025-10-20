@@ -1,8 +1,15 @@
 "use client";
 
-import { Plus, MessageSquare, X, RefreshCw, Trash2 } from "lucide-react";
+import {
+  Plus,
+  MessageSquare,
+  X,
+  RefreshCw,
+  Trash2,
+  AlertCircle,
+} from "lucide-react";
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
-import { saveChatHistory, loadChatHistory } from "../utils/chatStore";
+import { saveChatHistory, loadChatHistory, clearAllChats } from "../utils/chatStore";
 
 function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -11,7 +18,7 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive 
   const handleDelete = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!showDeleteConfirm) {
       setShowDeleteConfirm(true);
       return;
@@ -22,7 +29,7 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive 
       await onDelete(chatChannel);
       setShowDeleteConfirm(false);
     } catch (error) {
-      console.error('Error deleting chat:', error);
+      console.error("Error deleting chat:", error);
     } finally {
       setDeleting(false);
     }
@@ -37,18 +44,14 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive 
   return (
     <div
       className={`flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors group ${
-        isActive
-          ? "bg-[#005A8D] text-white"
-          : "text-[#F8F9FA] hover:bg-[#005A8D]"
+        isActive ? "bg-[#005A8D] text-white" : "text-[#F8F9FA] hover:bg-[#005A8D]"
       }`}
     >
       <a
         href="#"
         onClick={(e) => {
           e.preventDefault();
-          if (!showDeleteConfirm) {
-            onSelect(chatChannel);
-          }
+          if (!showDeleteConfirm) onSelect(chatChannel);
         }}
         className="flex items-center gap-3 flex-1 min-w-0 mr-2"
       >
@@ -60,7 +63,7 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive 
           </div>
         </div>
       </a>
-      
+
       {showDeleteConfirm ? (
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
@@ -76,7 +79,7 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive 
             className="px-2 py-1 text-xs bg-red-600 text-white hover:bg-red-500 rounded disabled:opacity-50"
             title="Confirm delete"
           >
-            {deleting ? '...' : '✓'}
+            {deleting ? "..." : "✓"}
           </button>
         </div>
       ) : (
@@ -92,29 +95,30 @@ function HistoryItem({ chatChannel, totalMessages, onSelect, onDelete, isActive 
   );
 }
 
-const Sidebar = forwardRef(function Sidebar({
-  isOpen,
-  onClose,
-  setChatChannel,
-  setChatHistory,
-  currentChatChannel,
-  initialChatChannel,
-  isInitialized,
-  onChatDeleted,
-}, ref) {
+const Sidebar = forwardRef(function Sidebar(
+  {
+    isOpen,
+    onClose,
+    setChatChannel,
+    setChatHistory,
+    currentChatChannel,
+    initialChatChannel,
+    isInitialized,
+    onChatDeleted,
+  },
+  ref
+) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
-  // Expose methods to parent component
   useImperativeHandle(ref, () => ({
     removeChatFromHistory: (chatChannel) => {
-      setHistory((prev) => prev.filter(item => item.chat_channel !== chatChannel));
+      setHistory((prev) => prev.filter((item) => item.chat_channel !== chatChannel));
     },
-    refreshHistory: () => {
-      fetchChatHistory();
-    }
+    refreshHistory: () => fetchChatHistory(),
   }));
 
   useEffect(() => {
@@ -125,15 +129,10 @@ const Sidebar = forwardRef(function Sidebar({
     if (initialChatChannel && isInitialized) {
       setHistory((prev) => {
         const chatMap = new Map();
-        
-        // Add existing chats
-        prev.forEach(chat => {
-          if (chat.chat_channel) {
-            chatMap.set(chat.chat_channel, chat);
-          }
+        prev.forEach((chat) => {
+          if (chat.chat_channel) chatMap.set(chat.chat_channel, chat);
         });
-        
-        // Add initial chat if it doesn't exist
+
         if (!chatMap.has(initialChatChannel)) {
           chatMap.set(initialChatChannel, {
             chat_channel: initialChatChannel,
@@ -142,10 +141,8 @@ const Sidebar = forwardRef(function Sidebar({
             messages: [],
           });
         }
-        
-        // Convert back to array and sort
-        return Array.from(chatMap.values())
-          .sort((a, b) => b.total_messages - a.total_messages);
+
+        return Array.from(chatMap.values()).sort((a, b) => b.total_messages - a.total_messages);
       });
     }
   }, [initialChatChannel, isInitialized]);
@@ -155,22 +152,67 @@ const Sidebar = forwardRef(function Sidebar({
     setError(null);
 
     try {
-      // For now, just load from localStorage since the API structure is different
-      const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
-      const localHistory = Object.entries(localChats)
-        .filter(([channel, messages]) => channel && Array.isArray(messages))
-        .map(([channel, messages]) => ({
-          chat_channel: channel,
-          total_messages: messages.length,
-          word_count: messages.reduce(
-            (sum, m) => sum + (m.text?.length || 0),
-            0
-          ),
-          messages,
-        }))
-        .sort((a, b) => b.total_messages - a.total_messages);
-      
-      setHistory(localHistory);
+      const headers = {};
+
+      if (process.env.NEXT_PUBLIC_API_USERNAME && process.env.NEXT_PUBLIC_API_PASSWORD) {
+        const credentials = btoa(
+          `${process.env.NEXT_PUBLIC_API_USERNAME}:${process.env.NEXT_PUBLIC_API_PASSWORD}`
+        );
+        headers["Authorization"] = `Basic ${credentials}`;
+      }
+
+      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/channels/list`;
+
+      try {
+        const response = await fetch(apiUrl, { method: "GET", headers });
+
+        if (response.ok) {
+          const apiData = await response.json();
+          const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
+          const chatMap = new Map();
+
+          if (Array.isArray(apiData)) {
+            apiData.forEach((channel) => {
+              if (channel.chat_channel) {
+                chatMap.set(channel.chat_channel, {
+                  chat_channel: channel.chat_channel,
+                  total_messages: channel.message_count || 0,
+                  word_count: channel.word_count || 0,
+                  messages: localChats[channel.chat_channel] || [],
+                });
+              }
+            });
+          }
+
+          Object.entries(localChats).forEach(([channel, messages]) => {
+            if (channel && Array.isArray(messages) && !chatMap.has(channel)) {
+              chatMap.set(channel, {
+                chat_channel: channel,
+                total_messages: messages.length,
+                word_count: messages.reduce((sum, m) => sum + (m.text?.length || 0), 0),
+                messages,
+              });
+            }
+          });
+
+          setHistory(Array.from(chatMap.values()).sort((a, b) => b.total_messages - a.total_messages));
+        } else {
+          throw new Error("API not available");
+        }
+      } catch {
+        const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
+        const localHistory = Object.entries(localChats)
+          .filter(([channel, messages]) => channel && Array.isArray(messages))
+          .map(([channel, messages]) => ({
+            chat_channel: channel,
+            total_messages: messages.length,
+            word_count: messages.reduce((sum, m) => sum + (m.text?.length || 0), 0),
+            messages,
+          }))
+          .sort((a, b) => b.total_messages - a.total_messages);
+
+        setHistory(localHistory);
+      }
     } catch (err) {
       console.error("Error fetching chat history:", err);
       setError(err.message);
@@ -188,23 +230,32 @@ const Sidebar = forwardRef(function Sidebar({
 
   async function deleteChatHistory(chatChannel) {
     try {
-      // Remove from local storage
+      const headers = {};
+
+      if (process.env.NEXT_PUBLIC_API_USERNAME && process.env.NEXT_PUBLIC_API_PASSWORD) {
+        const credentials = btoa(
+          `${process.env.NEXT_PUBLIC_API_USERNAME}:${process.env.NEXT_PUBLIC_API_PASSWORD}`
+        );
+        headers["Authorization"] = `Basic ${credentials}`;
+      }
+
+      try {
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/channels/delete?client_id=${encodeURIComponent(
+          chatChannel
+        )}`;
+        const response = await fetch(apiUrl, { method: "DELETE", headers });
+        if (!response.ok) console.warn("API deletion failed, continuing with local deletion");
+      } catch {}
+
       const localChats = JSON.parse(localStorage.getItem("chatHistory") || "{}");
       if (localChats[chatChannel]) {
         delete localChats[chatChannel];
         localStorage.setItem("chatHistory", JSON.stringify(localChats));
       }
 
-      // Remove from history state
-      setHistory((prev) => prev.filter(item => item.chat_channel !== chatChannel));
+      setHistory((prev) => prev.filter((item) => item.chat_channel !== chatChannel));
 
-      // If this was the current chat, notify parent to handle it
-      if (currentChatChannel === chatChannel && onChatDeleted) {
-        onChatDeleted(chatChannel);
-      }
-
-      console.log(`Chat history deleted locally`);
-      
+      if (currentChatChannel === chatChannel && onChatDeleted) onChatDeleted(chatChannel);
     } catch (err) {
       console.error("Error deleting chat history:", err);
       setError(`Failed to delete chat: ${err.message}`);
@@ -212,24 +263,31 @@ const Sidebar = forwardRef(function Sidebar({
     }
   }
 
-  async function loadChatChannel(chatChannel) {
-    setChatChannel(chatChannel);
-
-    // Load from local storage
-    const localMessages = loadChatHistory(chatChannel);
-    if (localMessages.length > 0) {
-      setChatHistory(localMessages);
-      return;
+  async function deleteAllChats() {
+    try {
+      const success = clearAllChats();
+      if (success) {
+        setHistory([]);
+        setShowDeleteAllConfirm(false);
+        if (onChatDeleted) onChatDeleted(currentChatChannel);
+      } else {
+        throw new Error("Failed to clear chats from storage");
+      }
+    } catch (err) {
+      console.error("Error deleting all chats:", err);
+      setError(`Failed to delete all chats: ${err.message}`);
     }
-
-    // If not found, show empty chat
-    setChatHistory([]);
   }
 
-  async function startNewChat() {
+  function loadChatChannel(chatChannel) {
+    setChatChannel(chatChannel);
+    const localMessages = loadChatHistory(chatChannel);
+    setChatHistory(localMessages.length > 0 ? localMessages : []);
+  }
+
+  function startNewChat() {
     const channel = `chat_${crypto.randomUUID()}`;
     setChatChannel(channel);
-    setChatHistory([]);
 
     const greeting = {
       sender: "ai",
@@ -237,32 +295,19 @@ const Sidebar = forwardRef(function Sidebar({
       timestamp: new Date().toISOString(),
       bot_name: "Astro Bot",
     };
-    
+
     setChatHistory([greeting]);
     saveChatHistory(channel, [greeting]);
 
-    // Add to history (avoid duplicates)
     setHistory((prev) => {
-      const chatMap = new Map();
-      
-      // Add existing chats
-      prev.forEach(chat => {
-        if (chat.chat_channel) {
-          chatMap.set(chat.chat_channel, chat);
-        }
-      });
-      
-      // Add the new chat
+      const chatMap = new Map(prev.map((chat) => [chat.chat_channel, chat]));
       chatMap.set(channel, {
         chat_channel: channel,
         total_messages: 1,
         word_count: greeting.text.length,
         messages: [greeting],
       });
-      
-      // Convert back to array and sort
-      return Array.from(chatMap.values())
-        .sort((a, b) => b.total_messages - a.total_messages);
+      return Array.from(chatMap.values()).sort((a, b) => b.total_messages - a.total_messages);
     });
   }
 
@@ -294,29 +339,65 @@ const Sidebar = forwardRef(function Sidebar({
         </button>
       </div>
 
-      {/* History header with refresh button */}
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold text-gray-400 px-3">History</p>
-        <button
-          onClick={refreshHistory}
-          disabled={refreshing}
-          className="p-1 rounded hover:bg-[#005A8D] transition-colors disabled:opacity-50"
-          aria-label="Refresh history"
-        >
-          <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={refreshHistory}
+            disabled={refreshing}
+            className="p-1 rounded hover:bg-[#005A8D] transition-colors disabled:opacity-50"
+            aria-label="Refresh history"
+            title="Refresh from API"
+          >
+            <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+
+          <button
+            onClick={() => setShowDeleteAllConfirm(true)}
+            disabled={history.length === 0}
+            className="p-1 rounded hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Delete all chats"
+            title="Delete All Chats"
+          >
+            <Trash2 className="w-3 h-3 text-red-400" />
+          </button>
+        </div>
       </div>
 
       <nav className="flex-1 flex flex-col gap-2 overflow-y-auto">
         {error && (
-          <div className="px-3 py-2 text-xs text-red-300 bg-red-900/30 rounded">
-            {error}
-            <button 
-              onClick={() => setError(null)}
-              className="ml-2 text-red-200 hover:text-white"
-            >
-              ×
-            </button>
+          <div className="px-3 py-2 text-xs text-red-300 bg-red-900/30 rounded flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              {error}
+              <button onClick={() => setError(null)} className="ml-2 text-red-200 hover:text-white">
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showDeleteAllConfirm && (
+          <div className="px-3 py-3 text-xs bg-red-900/20 border border-red-500/30 rounded">
+            <p className="text-red-200 mb-3 font-semibold">Delete all chats?</p>
+            <p className="text-gray-300 mb-3 text-xs">
+              This will permanently delete all chat history from local storage. This action cannot
+              be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteAllConfirm(false)}
+                className="flex-1 px-3 py-1.5 bg-gray-600 text-white hover:bg-gray-500 rounded text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteAllChats}
+                className="flex-1 px-3 py-1.5 bg-red-600 text-white hover:bg-red-500 rounded text-xs font-semibold"
+              >
+                Delete All
+              </button>
+            </div>
           </div>
         )}
 
@@ -327,8 +408,9 @@ const Sidebar = forwardRef(function Sidebar({
           </div>
         ) : history.length > 0 ? (
           history
-            .filter((chatItem, index, arr) => 
-              arr.findIndex(item => item.chat_channel === chatItem.chat_channel) === index
+            .filter(
+              (chatItem, index, arr) =>
+                arr.findIndex((item) => item.chat_channel === chatItem.chat_channel) === index
             )
             .map((chatItem) => (
               <HistoryItem
@@ -345,9 +427,13 @@ const Sidebar = forwardRef(function Sidebar({
         )}
       </nav>
 
-      {/* API Status Indicator */}
       <div className="mt-2 px-3 py-1 text-xs text-gray-400 border-t border-gray-600">
-        API: {process.env.NEXT_PUBLIC_API_URL ? '🟢 Connected' : '🔴 Not configured'}
+        <div className="flex items-center justify-between">
+          <span>API: {process.env.NEXT_PUBLIC_API_URL ? "🟢 Connected" : "🔴 Not configured"}</span>
+          <span className="text-gray-500">
+            {history.length} chat{history.length !== 1 ? "s" : ""}
+          </span>
+        </div>
       </div>
     </div>
   );
