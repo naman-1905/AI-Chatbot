@@ -81,14 +81,12 @@ export default function Home() {
         "Accept": "text/plain"
       };
 
-      // Add Basic Auth - REQUIRED for your API
+      // Add Basic Auth if credentials are available
       if (process.env.NEXT_PUBLIC_API_USERNAME && process.env.NEXT_PUBLIC_API_PASSWORD) {
         const credentials = btoa(
           `${process.env.NEXT_PUBLIC_API_USERNAME}:${process.env.NEXT_PUBLIC_API_PASSWORD}`
         );
         headers['Authorization'] = `Basic ${credentials}`;
-      } else {
-        console.warn('API credentials not configured. Please set NEXT_PUBLIC_API_USERNAME and NEXT_PUBLIC_API_PASSWORD');
       }
 
       const res = await fetch(url.toString(), {
@@ -128,9 +126,9 @@ export default function Home() {
           
           // Parse SSE format: "data: <content>"
           if (line.startsWith('data:')) {
-            const chunk = line.substring(5).trim(); // Remove "data:" prefix and trim
+            const chunk = line.substring(5).trim();
             
-            if (!chunk) continue; // Skip empty data
+            if (!chunk) continue;
             
             // Add AI message placeholder if not added yet
             if (!aiMessageAdded) {
@@ -142,8 +140,7 @@ export default function Home() {
               aiMessageAdded = true;
             }
 
-            // Simply concatenate chunks without adding extra spaces
-            // The backend already includes spaces where needed (like "data: " between words)
+            // Concatenate chunks
             aiText += chunk;
             
             setChatHistory((prev) => {
