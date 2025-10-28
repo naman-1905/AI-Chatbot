@@ -12,7 +12,7 @@ A locally-hosted AI chatbot with a frontend built using Next.js and Tailwind CSS
 
 ## Usage
 
-- You can ask the AI about me via the frontend interface: [https://chat.halfskirmish.com](https://chat.halfskirmish.com)
+- You can ask the AI about me via the frontend interface: [https://ai.halfskirmish.com](https://ai.halfskirmish.com)
 - Designed for learning and personal projects.
 
 ## Tech Stack
